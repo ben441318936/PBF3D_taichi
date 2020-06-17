@@ -7,8 +7,10 @@ import math
 
 ti.init(arch=ti.gpu)
 
-screen_res = (800, 400)
-screen_to_world_ratio = 10.0
+base_size_factor = 400
+scaling_size_factor = 2
+screen_res = np.array([2, 1]) * base_size_factor * scaling_size_factor
+screen_to_world_ratio = 10.0 * scaling_size_factor
 boundary = (screen_res[0] / screen_to_world_ratio,
             screen_res[1] / screen_to_world_ratio)
 cell_size = 2.51
@@ -26,13 +28,13 @@ bg_color = 0x112f41
 particle_color = 0x068587
 boundary_color = 0xebaca2
 num_particles_x = 60
-num_particles = num_particles_x * 20
+num_particles = num_particles_x * 20 * scaling_size_factor
 max_num_particles_per_cell = 100
 max_num_neighbors = 100
 time_delta = 1.0 / 20.0
 epsilon = 1e-5
-particle_radius = 3.0
-particle_radius_in_world = particle_radius / screen_to_world_ratio
+particle_radius_screen = 3.0 
+particle_radius_in_world = particle_radius_screen / screen_to_world_ratio
 
 # PBF params
 h = 1.1
@@ -285,7 +287,7 @@ def render(gui):
     for pos in pos_np:
         for j in range(dim):
             pos[j] *= screen_to_world_ratio / screen_res[j]
-    gui.circles(pos_np, radius=particle_radius, color=particle_color)
+    gui.circles(pos_np, radius=particle_radius_screen, color=particle_color)
     canvas.rect(ti.vec(
         0, 0), ti.vec(board_states[None][0] / boundary[0],
                       1.0)).radius(1.5).color(boundary_color).close().finish()

@@ -1,18 +1,23 @@
 # Macklin, M. and Müller, M., 2013. Position based fluids. ACM Transactions on Graphics (TOG), 32(4), p.104.
-# Baed on 2D Taichi implementation by Ye Kuang (k-ye)
+# Based on 2D Taichi implementation by Ye Kuang (k-ye)
 
 import taichi as ti
 import numpy as np
 import math
+import time
 
 ti.init(arch=ti.gpu)
 
-screen_res = (800, 400)
-screen_to_world_ratio = 10.0
-boundary = (800 / screen_to_world_ratio,
-            20 / screen_to_world_ratio,
-            400 / screen_to_world_ratio)
-cell_size = 2.51
+base_size_factor = 400
+scaling_size_factor = 1
+
+res_3D = np.array([2, 0.5, 1]) * base_size_factor * scaling_size_factor
+screen_res = res_3D[[0,2]].astype(np.int32) # [0,2] for x-z visualization
+#screen_res = res_3D[[0,1]].astype(np.int32) # [0,1] for x-y visualization
+
+screen_to_world_ratio = 10.0 * scaling_size_factor
+boundary = res_3D / screen_to_world_ratio
+cell_size = 2.51 / scaling_size_factor
 cell_recpr = 1.0 / cell_size
 
 
@@ -28,13 +33,13 @@ particle_color = 0x068587
 boundary_color = 0xebaca2
 num_particles_x = 60
 num_particles_y = 20
-num_particles_z = 2
+num_particles_z = 8
 num_particles = num_particles_x * num_particles_y * num_particles_z
 max_num_particles_per_cell = 100
 max_num_neighbors = 100
 time_delta = 1.0 / 20.0
 epsilon = 1e-5
-particle_radius = 3.0
+particle_radius = 3.0 
 particle_radius_in_world = particle_radius / screen_to_world_ratio
 
 # PBF params
@@ -42,6 +47,8 @@ h = 1.1
 mass = 1.0
 rho0 = 1.0
 lambda_epsilon = 100.0
+vorticity_epsilon = 0.01
+viscosity_c = 0.01
 pbf_num_iters = 5
 corr_deltaQ_coeff = 0.3
 corrK = 0.001
@@ -53,7 +60,6 @@ poly6_factor = 315.0 / 64.0 / np.pi
 spiky_grad_factor = -45.0 / np.pi
 
 old_positions = ti.Vector(dim, dt=ti.f32)
-
 positions = ti.Vector(dim, dt=ti.f32)
 velocities = ti.Vector(dim, dt=ti.f32)
 # Once taichi supports clear(), we can get rid of grid_num_particles
@@ -211,6 +217,8 @@ def compute_lambdas():
             # TODO: does taichi supports break?
             if p_j >= 0:
                 pos_ji = pos_i - positions[p_j]
+                # grad_j is gradient for jth neighbor
+                # with respect to p_i
                 grad_j = spiky_gradient(pos_ji, h)
                 grad_i += grad_j
                 sum_gradient_sqr += grad_j.dot(grad_j)
@@ -259,6 +267,50 @@ def update_velocities():
         velocities[i] = (positions[i] - old_positions[i]) / time_delta
 
 
+@ti.kernel
+def vorticity_confinement():
+    # Eq (15) ~ (16)
+    for p_i in positions:
+        pos_i = positions[p_i]
+        vel_i = velocities[p_i]
+        omega_i = ti.Vector([0.0, 0.0, 0.0])
+
+        for j in range(particle_num_neighbors[p_i]):
+            p_j = particle_neighbors[p_i, j]
+            if p_j >= 0:
+                pos_ji = pos_i - positions[p_j]
+                vel_ij = velocities[p_j] - vel_i
+                # We need gradient with respect to p_j
+                # This is the negative of the normal version
+                # Since we have p_i - p_j
+                grad_j = - spiky_gradient(pos_ji, h)
+                omega_i += vel_ij.cross(grad_j)
+        omega_mag_i = omega_i.norm()
+
+        location_vector = ti.Vector([0.0, 0.0, 0.0])
+        f_vorticity = vorticity_epsilon * (location_vector.cross(omega_i))
+        velocities[p_i] += time_delta * f_vorticity
+
+
+@ti.kernel
+def apply_XSPH_viscosity():
+    # Eq (17)
+    for v_i in velocities:
+        pos_i = positions[v_i]
+        vel_i = velocities[v_i]
+        v_delta_i = ti.Vector([0.0, 0.0, 0.0])
+
+        for j in range(particle_num_neighbors[v_i]):
+            p_j = particle_neighbors[v_i, j]
+            pos_ji = pos_i - positions[p_j]
+            vel_ij = velocities[p_j] - vel_i
+            if p_j >= 0:
+                pos_ji = pos_i - positions[p_j]
+                v_delta_i += vel_ij * poly6_value(pos_ji.norm(), h)
+
+        velocities[v_i] += viscosity_c * v_delta_i
+
+
 def run_pbf():
     blit_buffers(positions, old_positions)
     apply_gravity_within_boundary()
@@ -274,7 +326,8 @@ def run_pbf():
 
     confine_to_boundary()
     update_velocities()
-    # no vorticity/xsph because we cannot do cross product in 2D...
+    #vorticity_confinement()
+    apply_XSPH_viscosity()
 
 
 def render(gui):
@@ -291,7 +344,6 @@ def render(gui):
     canvas.rect(ti.vec(0, 0), 
                 ti.vec(board_states[None][0] / boundary[0],1.0)
                 ).radius(1.5).color(boundary_color).close().finish()
-    gui.show()
 
 
 def init_particles():
@@ -306,10 +358,15 @@ def init_particles():
     #                  (boundary[2] * 0.02)],
     #                 dtype=np.float32)
 
+    @ti.kernel
+    def init_board():
+        board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
+    init_board()
+
     for i in range(num_particles):
         #np_positions[i] = np.array([i % num_x, i // num_x]) * delta + offs
-        np_positions = np.random.uniform([particle_radius_in_world, particle_radius_in_world, particle_radius_in_world], 
-                                        np.array([board_states[None][0], boundary[1], boundary[2]]) - particle_radius_in_world,
+        np_positions = np.random.uniform([particle_radius_in_world, boundary[1]/2, particle_radius_in_world], 
+                                        np.array([board_states[None][0]/5, boundary[1], boundary[2]/5]) - particle_radius_in_world,
                                         (num_particles,dim))
     np_velocities = (np.random.rand(num_particles, dim).astype(np.float32) -
                      0.5) * 4.0
@@ -321,12 +378,8 @@ def init_particles():
                 positions[i][c] = p[i, c]
                 velocities[i][c] = v[i, c]
 
-    @ti.kernel
-    def init2():
-        board_states[None] = ti.Vector([boundary[0] - epsilon, -0.0])
-
     init(np_positions, np_velocities)
-    init2()
+    
 
 
 def print_stats():
@@ -342,16 +395,26 @@ def print_stats():
 def main():
     init_particles()
     print(f'boundary={boundary} grid={grid_size} cell_size={cell_size}')
+
+    result_dir = "./viz_results/x_z/frames"
+    #video_manger = ti.VideoManager(output_dir=result_dir, framerate=24, automatic_build=False)
+
     gui = ti.GUI('PBF3D', screen_res)
-    print_counter = 0
-    while gui.running:
+    #print_counter = 0
+    #while gui.running:
+    for i in range(600):
         move_board()
         run_pbf()
-        print_counter += 1
-        if print_counter == 20:
-            print_stats()
-            print_counter = 0
+        # print_counter += 1
+        # if print_counter == 50:
+        #     print_stats()
+        #     print_counter = 0
         render(gui)
+        gui.show("{}/{:03d}.png".format(result_dir,i))
+        #video_manger.write_frame(gui.img)
+
+    #video_manger.make_video(gif=True, mp4=True)
+
 
 
 if __name__ == '__main__':
