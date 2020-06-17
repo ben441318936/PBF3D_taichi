@@ -18,7 +18,7 @@
     
         ![Front view](viz_results/x_z/out.gif)
         
-        ![Top view][viz_results/x_y/out.gif]
+        ![Top view](viz_results/x_y/out.gif)
         
     - Derived new gradients for vorticity confinement
 - TODOs
