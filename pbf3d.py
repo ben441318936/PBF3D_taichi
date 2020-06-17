@@ -274,6 +274,8 @@ def vorticity_confinement():
         pos_i = positions[p_i]
         vel_i = velocities[p_i]
         omega_i = ti.Vector([0.0, 0.0, 0.0])
+        # This is eta in the paper, which is the gradient of the magnitude of omega
+        omega_mag_i_grad = ti.Vector([0.0, 0.0, 0.0])
 
         for j in range(particle_num_neighbors[p_i]):
             p_j = particle_neighbors[p_i, j]
@@ -284,10 +286,17 @@ def vorticity_confinement():
                 # This is the negative of the normal version
                 # Since we have p_i - p_j
                 grad_j = - spiky_gradient(pos_ji, h)
-                omega_i += vel_ij.cross(grad_j)
+                z = vel_ij.cross(grad_j)
+                # Hand-derived gradient for the cross product
+                z_grad = ti.Matrix([[0.0, vel_ij[2], -vel_ij[1]], [-vel_ij[2], 0.0, vel_ij[0]], [vel_ij[1], -vel_ij[0], 0.0]])
+                omega_mag_i_grad += z_grad @ z
+                omega_i += vel_ij.cross(z)
         omega_mag_i = omega_i.norm()
+        # This normalization comes from the gradient itself
+        omega_mag_i_grad /= omega_mag_i
 
-        location_vector = ti.Vector([0.0, 0.0, 0.0])
+        # This normalization comes from Eq (16)
+        location_vector = omega_mag_i_grad.normalized()
         f_vorticity = vorticity_epsilon * (location_vector.cross(omega_i))
         velocities[p_i] += time_delta * f_vorticity
 
@@ -326,7 +335,7 @@ def run_pbf():
 
     confine_to_boundary()
     update_velocities()
-    #vorticity_confinement()
+    vorticity_confinement()
     apply_XSPH_viscosity()
 
 
@@ -396,10 +405,14 @@ def main():
     init_particles()
     print(f'boundary={boundary} grid={grid_size} cell_size={cell_size}')
 
-    result_dir = "./viz_results/x_z/frames"
-    #video_manger = ti.VideoManager(output_dir=result_dir, framerate=24, automatic_build=False)
+    #result_dir = "./viz_results/x_z/frames"
+    series_prefix = "./viz_results/3D/frames/frame.ply"
 
-    gui = ti.GUI('PBF3D', screen_res)
+    particle_rgba = np.zeros((num_particles,4))
+    particle_rgba[:,2] = 1
+    particle_rgba[:,3] = 1
+
+    #gui = ti.GUI('PBF3D', screen_res)
     #print_counter = 0
     #while gui.running:
     for i in range(600):
@@ -409,11 +422,14 @@ def main():
         # if print_counter == 50:
         #     print_stats()
         #     print_counter = 0
-        render(gui)
-        gui.show("{}/{:03d}.png".format(result_dir,i))
-        #video_manger.write_frame(gui.img)
-
-    #video_manger.make_video(gif=True, mp4=True)
+        #render(gui)
+        #gui.show("{}/{:03d}.png".format(result_dir,i))
+        #gui.show()
+        ply_writer = ti.PLYWriter(num_vertices=num_particles)
+        np_pos = positions.to_numpy()
+        ply_writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
+        ply_writer.add_vertex_rgba(particle_rgba[:,0],particle_rgba[:,1],particle_rgba[:,2],particle_rgba[:,3])
+        ply_writer.export_frame_ascii(i, series_prefix)
 
 
 
