@@ -15,8 +15,11 @@
     - Watched Taichi lecture 3
     - Implemented XSPH viscosity in position-base fluids
     - Front and top view of the 3D simulation
+    
         ![Front view](viz_results/x_z/out.gif)
+        
         ![Top view][viz_results/x_y/out.gif]
+        
     - Derived new gradients for vorticity confinement
 - TODOs
     - Implement vorticity confinement
