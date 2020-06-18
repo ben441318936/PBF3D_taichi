@@ -10,7 +10,7 @@
     - Finished implementing vorticity confinement
     - Can now export PLY data to Houdini for rendering
 
-        ![3D render](viz_results/houdini/out.gif)
+        ![3D render](viz_results/houdini/out1.gif)
 
 - TODOs
     - Better rendering
