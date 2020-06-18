@@ -1,18 +1,28 @@
 ## Work journal
 
+
 ### Week of June 15th - 17th, 2020
+
 
 #### June 17th
 
 - Taichi learning and experiments
     - Finished implementing vorticity confinement
     - Can now export PLY data to Houdini for rendering
+
+        ![3D render](viz_results/houdini/out.gif)
+
 - TODOs
     - Better rendering
         - Size of particles
-        - Fluid material
-            - Marching cubes?
+            - [Particle attributes](https://www.sidefx.com/docs/houdini/model/attributes.html)
+            - This is a requisite for particle fluid surface in Houdini
+        - Fluid surface rendering
+            - Marching cubes in Taichi to create all the polygons?
+            - Generate surface polygons in Houdini?
+                - [Particle fluid surface](https://www.sidefx.com/docs/houdini/nodes/sop/particlefluidsurface.html)
         - Boundary walls
+    - Modularize the simulation code for easier future use
 
 
 #### June 16th
@@ -28,7 +38,7 @@
 
         ![Top view](viz_results/x_y/out.gif)
         
-    - Derived new gradients for vorticity confinement
+    - Derived gradients for vorticity confinement
 - TODOs
     - Implement vorticity confinement
     - Need to validate results in 3D, not sure what's a good quantitative evaluation yet, have to rely on visuals for now

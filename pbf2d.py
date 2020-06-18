@@ -296,13 +296,13 @@ def render(gui):
 
 def init_particles():
     np_positions = np.zeros((num_particles, dim), dtype=np.float32)
-    delta = h * 0.8
+    #delta = h * 0.8
     num_x = num_particles_x
     num_y = num_particles // num_x
     assert num_x * num_y == num_particles
-    offs = np.array([(boundary[0] - delta * num_x) * 0.5,
-                     (boundary[1] * 0.02)],
-                    dtype=np.float32)
+    # offs = np.array([(boundary[0] - delta * num_x) * 0.5,
+    #                  (boundary[1] * 0.02)],
+    #                 dtype=np.float32)
 
     for i in range(num_particles):
         #np_positions[i] = np.array([i % num_x, i // num_x]) * delta + offs
