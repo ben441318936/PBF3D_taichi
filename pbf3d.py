@@ -6,14 +6,14 @@ import numpy as np
 import math
 import time
 
-import open3d as o3d
+#import open3d as o3d
 
 ti.init(arch=ti.gpu)
 
 base_size_factor = 400
 scaling_size_factor = 1
 
-res_3D = np.array([1, 0.5, 0.5]) * base_size_factor * scaling_size_factor
+res_3D = np.array([1, 0.5, 1]) * base_size_factor * scaling_size_factor
 screen_res = res_3D[[0,2]].astype(np.int32) # [0,2] for x-z visualization
 #screen_res = res_3D[[0,1]].astype(np.int32) # [0,1] for x-y visualization
 
@@ -35,10 +35,10 @@ particle_color = 0x068587
 boundary_color = 0xebaca2
 num_particles_x = 60
 num_particles_y = 20
-num_particles_z = 1
+num_particles_z = 8
 num_particles = num_particles_x * num_particles_y * num_particles_z
-max_num_particles_per_cell = 100
-max_num_neighbors = 100
+max_num_particles_per_cell = 200
+max_num_neighbors = 200
 time_delta = 1.0 / 20.0
 epsilon = 1e-5
 particle_radius = 3.0 
@@ -337,7 +337,7 @@ def run_pbf():
 
     confine_to_boundary()
     update_velocities()
-    vorticity_confinement()
+    #vorticity_confinement()
     apply_XSPH_viscosity()
 
 
@@ -407,12 +407,12 @@ def main():
     init_particles()
     print(f'boundary={boundary} grid={grid_size} cell_size={cell_size}')
 
-    #result_dir = "./viz_results/x_z/frames"
-    #series_prefix = "./viz_results/3D/frames_small_short/frame.ply"
+    # result_dir = "./viz_results/x_z/frames"
+    series_prefix = "./viz_results/3D/frames_small/frame.ply"
 
-    # particle_rgba = np.zeros((num_particles,4))
-    # particle_rgba[:,2] = 1
-    # particle_rgba[:,3] = 1
+    particle_rgba = np.zeros((num_particles,4))
+    particle_rgba[:,2] = 1
+    particle_rgba[:,3] = 1
 
     #gui = ti.GUI('PBF3D', screen_res)
     #print_counter = 0
@@ -421,9 +421,12 @@ def main():
     #v = o3d.visualization.Visualizer()
     #v.create_window(window_name='Open3D', width=1000, height=500, left=50, top=50, visible=True)
 
-    pcd = o3d.geometry.PointCloud()
+    #pcd = o3d.geometry.PointCloud()
 
-    for i in range(10):
+    t = time.time()
+    frames = 0
+
+    for i in range(600):
         move_board()
         run_pbf()
         # print_counter += 1
@@ -433,18 +436,22 @@ def main():
         #render(gui)
         #gui.show("{}/{:03d}.png".format(result_dir,i))
         #gui.show()
-        # ply_writer = ti.PLYWriter(num_vertices=num_particles)
+        ply_writer = ti.PLYWriter(num_vertices=num_particles)
         np_pos = positions.to_numpy()
-        # ply_writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
-        # ply_writer.add_vertex_rgba(particle_rgba[:,0],particle_rgba[:,1],particle_rgba[:,2],particle_rgba[:,3])
-        # ply_writer.export_frame_ascii(i, series_prefix)
-        pcd.points = o3d.utility.Vector3dVector(np_pos)
-        # v.clear_geometries()
-        # v.add_geometry(pcd)
-        # v.poll_events()
-        # v.update_renderer()
-        o3d.visualization.draw_geometries([pcd])
-        time.sleep(1)
+        ply_writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
+        ply_writer.add_vertex_rgba(particle_rgba[:,0],particle_rgba[:,1],particle_rgba[:,2],particle_rgba[:,3])
+        ply_writer.export_frame_ascii(i+1, series_prefix)
+        frames += 1
+        if time.time() - t >= 1:
+            print("Avg FPS: {:d}",frames)
+            frames = 0
+        # pcd.points = o3d.utility.Vector3dVector(np_pos)
+        # # v.clear_geometries()
+        # # v.add_geometry(pcd)
+        # # v.poll_events()
+        # # v.update_renderer()
+        # o3d.visualization.draw_geometries([pcd])
+        # time.sleep(1)
 
     #v.destroy_window()
 

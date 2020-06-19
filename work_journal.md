@@ -1,12 +1,25 @@
 ## Work journal
 
 
-### Week of June 15th - 18th, 2020
+### Week of June 15th - 19th, 2020
+
+
+#### June 19th
+
+- Houdini rendering for fluids
+    - Found out that Houdini crashes because geometry has infs, culprit is vorticity code
+    - Turn off vorticity for now, will need to debug computations and hand derived gradients
+    - New render with fluid surfaces
+
+        ![Fluid with surface](viz_results\houdini\out3.gif)
+
+
+
 
 
 #### June 18th
 
-- Investigate interactive visualizaiton of point clouds
+- Investigated interactive visualizaiton of point clouds
     - [pptk](https://heremaps.github.io/pptk/tutorials/viewer/tanks_and_temples.html)
         - Loading seems to have some issues
     - [Open3D](http://www.open3d.org/)
@@ -17,7 +30,7 @@
 - FleX in Unity
     - Can do a fluid simulation and render
 
-        ![Blood flow](viz_results/unity/gif_animation_001.gif)
+        <img src="viz_results\unity\gif_animation_001.gif" width="200" height="200" />
     
 - TODOs
     - [Previous MPM work](https://github.com/yuanming-hu/taichi_mpm) rendered with Houdini, take a look at that again?
