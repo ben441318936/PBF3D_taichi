@@ -1,7 +1,30 @@
 ## Work journal
 
 
-### Week of June 15th - 17th, 2020
+### Week of June 15th - 18th, 2020
+
+
+#### June 18th
+
+- Investigate interactive visualizaiton of point clouds
+    - [pptk](https://heremaps.github.io/pptk/tutorials/viewer/tanks_and_temples.html)
+        - Loading seems to have some issues
+    - [Open3D](http://www.open3d.org/)
+        - Can't create visualizer window!?!
+- Houdini rendering for fluids
+    - Crashes when trying to create polygon surfaces from particles
+    - Most likly a hardware resource issue
+- FleX in Unity
+    - Can do a fluid simulation and render
+
+        ![Blood flow](viz_results/unity/gif_animation_001.gif)
+    
+- TODOs
+    - [Previous MPM work](https://github.com/yuanming-hu/taichi_mpm) rendered with Houdini, take a look at that again?
+    - FleX Unity
+        - Need better assets (surgical scenes?) for better simulation
+        - Need to get particle positions as ground truth ([maybe this](https://forums.developer.nvidia.com/t/unity-flex-particles-position/64968/7))
+    - Try Blender for rendering
 
 
 #### June 17th
