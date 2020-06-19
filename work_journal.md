@@ -11,7 +11,7 @@
     - Turn off vorticity for now, will need to debug computations and hand derived gradients
     - New render with fluid surfaces
 
-        ![Fluid with surface](viz_results\houdini\out3.gif)
+        ![Fluid with surface](viz_results/houdini/out3.gif)
 
 
 
