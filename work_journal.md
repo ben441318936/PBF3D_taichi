@@ -8,13 +8,22 @@
 
 - Houdini rendering for fluids
     - Found out that Houdini crashes because geometry has infs, culprit is vorticity code
-    - Turn off vorticity for now, will need to debug computations and hand derived gradients
+    - Turn off vorticity for now, will need to debug computations and hand-derived gradients
     - New render with fluid surfaces
 
         ![Fluid with surface](viz_results/houdini/out3.gif)
 
+- Surgical scene rendering
+    - Haven't found any good (and free) texture and mesh assets that can be used for a more realistic render
+- PBF in Taichi
+    - Put the simulation code into a class, should be easier to modify for future use
+    - Set up particle emission for bleeding simulation
 
+        ![Particle emission](viz_results/x_z_emit/out.gif)
 
+- TODOs
+    - Search more for surgical scene assets for rendering
+    - Test more complex boundary conditions for Taichi PBF
 
 
 #### June 18th
@@ -30,7 +39,7 @@
 - FleX in Unity
     - Can do a fluid simulation and render
 
-        <img src="viz_results\unity\gif_animation_001.gif" width="200" height="200" />
+        <img src="viz_results/unity/gif_animation_001.gif" width="200" height="200" />
     
 - TODOs
     - [Previous MPM work](https://github.com/yuanming-hu/taichi_mpm) rendered with Houdini, take a look at that again?

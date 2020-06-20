@@ -35,7 +35,7 @@ particle_color = 0x068587
 boundary_color = 0xebaca2
 num_particles_x = 60
 num_particles_y = 20
-num_particles_z = 8
+num_particles_z = 1
 num_particles = num_particles_x * num_particles_y * num_particles_z
 max_num_particles_per_cell = 200
 max_num_neighbors = 200
@@ -408,13 +408,13 @@ def main():
     print(f'boundary={boundary} grid={grid_size} cell_size={cell_size}')
 
     # result_dir = "./viz_results/x_z/frames"
-    series_prefix = "./viz_results/3D/frames_small/frame.ply"
+    #series_prefix = "./viz_results/3D/frames_small/frame.ply"
 
     particle_rgba = np.zeros((num_particles,4))
     particle_rgba[:,2] = 1
     particle_rgba[:,3] = 1
 
-    #gui = ti.GUI('PBF3D', screen_res)
+    gui = ti.GUI('PBF3D', screen_res)
     #print_counter = 0
     #while gui.running:
 
@@ -426,25 +426,26 @@ def main():
     t = time.time()
     frames = 0
 
-    for i in range(600):
+    #for i in range(600):
+    while gui.running:
         move_board()
         run_pbf()
         # print_counter += 1
         # if print_counter == 50:
         #     print_stats()
         #     print_counter = 0
-        #render(gui)
+        render(gui)
         #gui.show("{}/{:03d}.png".format(result_dir,i))
-        #gui.show()
-        ply_writer = ti.PLYWriter(num_vertices=num_particles)
-        np_pos = positions.to_numpy()
-        ply_writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
-        ply_writer.add_vertex_rgba(particle_rgba[:,0],particle_rgba[:,1],particle_rgba[:,2],particle_rgba[:,3])
-        ply_writer.export_frame_ascii(i+1, series_prefix)
-        frames += 1
-        if time.time() - t >= 1:
-            print("Avg FPS: {:d}",frames)
-            frames = 0
+        gui.show()
+        # ply_writer = ti.PLYWriter(num_vertices=num_particles)
+        # np_pos = positions.to_numpy()
+        # ply_writer.add_vertex_pos(np_pos[:, 0], np_pos[:, 1], np_pos[:, 2])
+        # ply_writer.add_vertex_rgba(particle_rgba[:,0],particle_rgba[:,1],particle_rgba[:,2],particle_rgba[:,3])
+        # ply_writer.export_frame_ascii(i+1, series_prefix)
+        # frames += 1
+        # if time.time() - t >= 1:
+        #     print("Avg FPS: {:d}",frames)
+        #     frames = 0
         # pcd.points = o3d.utility.Vector3dVector(np_pos)
         # # v.clear_geometries()
         # # v.add_geometry(pcd)
