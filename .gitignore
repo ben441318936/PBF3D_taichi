@@ -3,3 +3,4 @@
 *.ply
 *.hipnc
 *.obj
+*.pyc

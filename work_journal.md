@@ -50,6 +50,8 @@
     - Can do a fluid simulation and render
 
         <img src="viz_results/unity/gif_animation_001.gif" width="200" height="200" />
+
+        ![Adjusted lighting](viz_results/unity/new.png)
     
 - TODOs
     - [Previous MPM work](https://github.com/yuanming-hu/taichi_mpm) rendered with Houdini, take a look at that again?
