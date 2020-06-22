@@ -4,3 +4,5 @@
 *.hipnc
 *.obj
 *.pyc
+
+!new.png
