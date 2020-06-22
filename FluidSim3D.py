@@ -5,12 +5,26 @@
 import taichi as ti
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 ti.init(arch=ti.gpu)
 
 @ti.data_oriented
 class FluidSim3D:
-    def __init__(self, num_particles=5000, boundary=(40,20,40), gui=None, do_render=True, render_res=(400,400), render_scaling=10, do_print_stats=True, print_frequency=50):
+    def __init__(self, 
+                num_particles=5000, 
+                boundary=(40,20,40), 
+                gui=None, 
+                do_render=False, 
+                do_render_save=False,
+                render_res=(400,400), 
+                render_scaling=10, 
+                do_print_stats=False, 
+                print_frequency=50, 
+                do_ply_save=False,
+                render_save_dir="./render_frames",
+                ply_save_prefix="./ply_frames/frame.ply"):
+        
         self.dim = 3
         self.bg_color = 0x112f41
         self.particle_color = 0x068587
@@ -20,10 +34,16 @@ class FluidSim3D:
         self.do_render = do_render
         self.render_res = render_res
         self.render_scaling = render_scaling
+        self.do_render_save = do_render_save
+        self.render_save_dir = render_save_dir
 
         self.do_print_stats = do_print_stats
         self.print_frequency = print_frequency
         self.print_counter = 0
+
+        self.color_map = plt.get_cmap("bwr")
+        self.do_ply_save = do_ply_save
+        self.ply_save_prefix = ply_save_prefix
 
         self.boundary = np.array(boundary)
 
@@ -65,6 +85,10 @@ class FluidSim3D:
         self.velocities = ti.Vector(self.dim, dt=ti.f32)
         self.particle_active = ti.var(ti.i32)
         self.num_active = ti.var(ti.i32)
+        self.num_active_py = 0
+
+        self.particle_rgba = np.zeros((self.num_particles,4))
+
         # Once taichi supports clear(), we can get rid of grid_num_particles
         self.grid_num_particles = ti.var(ti.i32)
         self.grid2particles = ti.var(ti.i32)
@@ -93,6 +117,7 @@ class FluidSim3D:
         ti.root.place(self.board_states)
         ti.root.dense(ti.i, self.num_particles).place(self.particle_active)
         ti.root.place(self.num_active)
+        #ti.root.dense(ti.i, self.num_particles).place(self.particle_rgba)
 
     @ti.func
     def init(self, p: ti.ext_arr(), v: ti.ext_arr()):
@@ -108,24 +133,43 @@ class FluidSim3D:
         #                                 (self.num_particles,self.dim))
         # np_velocities = (np.random.rand(self.num_particles, self.dim).astype(np.float32) -
         #                 0.5) * 4.0
-        np_positions = 10 * (np.ones((self.num_particles, self.dim)) + ti.random())
+        np_positions = -100 * (np.ones((self.num_particles, self.dim)) + ti.random())
         np_velocities = np.zeros((self.num_particles, self.dim))
 
         self.init(np_positions, np_velocities)
         self.particle_active.fill(0)
         self.num_active[None] = 0
 
-
+    # Kernel to emit 1 particle
     @ti.kernel
-    def emit_particles(self, num: ti.i32, init_pos: ti.ext_arr(), init_vel: ti.ext_arr()):
-        if self.num_active[None] < self.num_particles:
-            for i in range(num):
-                if self.num_active[None] < self.num_particles:
-                    self.particle_active[self.num_active[None]] = 1
-                    for c in ti.static(range(self.dim)):
-                        self.positions[self.num_active[None]][c] = init_pos[c] + ti.random()
-                        self.velocities[self.num_active[None]][c] = init_vel[c]
-                    self.num_active[None] += 1
+    def emit_particles_kernel(self, init_pos: ti.ext_arr(), init_vel: ti.ext_arr()):
+        for c in ti.static(range(self.dim)):
+            # r = 0.0
+            # if c != 0:
+            #     r = 3.0 * ti.random()
+            self.positions[self.num_active[None]][c] = init_pos[c]
+            self.velocities[self.num_active[None]][c] = init_vel[c]
+        self.particle_active[self.num_active[None]] = 1
+        self.num_active[None] += 1
+
+    # Python-scope to control emission and color setting
+    def emit_particles(self,num,init_pos,init_vel):
+        color_ind = self.num_active_py / self.num_particles
+        color_ind = round(0.2 * round(color_ind/0.2) , 1)
+        color = self.color_map(color_ind)
+
+        x = int(np.ceil(np.sqrt(num)))
+        xy = np.mgrid[-1.2:1.2:x*1j, -1.2:1.2:x*1j].reshape(2,-1).T
+
+        for i in range(num):
+            if self.num_active_py < self.num_particles:
+                offset = np.array([0,xy[i,0],xy[i,1]])
+                self.emit_particles_kernel(init_pos + offset,init_vel)
+                self.particle_rgba[self.num_active_py,:] = np.array(color)
+                self.num_active_py += 1
+            else:
+                break
+
 
     @ti.kernel
     def init_board(self):
@@ -381,7 +425,7 @@ class FluidSim3D:
         self.apply_XSPH_viscosity()
 
     def render(self,frame):
-        result_dir = "./viz_results/x_z_emit/frames"
+        #result_dir = "./viz_results/x_z_emit/frames"
         if self.gui is None and self.gui.running:
             print("Can't render without running GUI.")
             return
@@ -400,7 +444,10 @@ class FluidSim3D:
         canvas.rect(ti.vec(0, 0), 
                     ti.vec(self.board_states[None][0] / self.boundary[0],1.0)
                     ).radius(1.5).color(self.boundary_color).close().finish()
-        self.gui.show("{}/{:03d}.png".format(result_dir,frame))
+        if self.do_render_save:
+            self.gui.show("{}/{:03d}.png".format(self.render_save_dir,frame))
+        else:
+            self.gui.show()
 
     def print_stats(self):
         print('PBF stats:')
@@ -411,11 +458,26 @@ class FluidSim3D:
         avg, max = np.mean(num), np.max(num)
         print(f'  #neighbors per particle: avg={avg:.2f} max={max}')
 
+    def save_ply(self,frame):
+        ply_writer = ti.PLYWriter(num_vertices=self.num_active[None])
+        pos_np = self.positions.to_numpy()
+        active_np = self.particle_active.to_numpy()
+        save_inds = active_np == 1
+        ply_writer.add_vertex_pos(pos_np[save_inds, 0], pos_np[save_inds, 1], pos_np[save_inds, 2])
+        ply_writer.add_vertex_rgba(self.particle_rgba[save_inds,0],
+                                    self.particle_rgba[save_inds,1],
+                                    self.particle_rgba[save_inds,2],
+                                    self.particle_rgba[save_inds,3])
+        #series_prefix = "./viz_results/3D/colors/frame.ply"
+        ply_writer.export_frame_ascii(frame+1, self.ply_save_prefix)
+
     def step(self,frame):
         self.move_board()
         self.run_pbf()
         if self.do_render:
             self.render(frame)
+        if self.do_ply_save:
+            self.save_ply(frame)
         if self.do_print_stats:
             self.print_counter += 1
             if self.print_counter == self.print_frequency:

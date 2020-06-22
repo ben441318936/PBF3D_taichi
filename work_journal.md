@@ -1,6 +1,14 @@
 ## Work journal
 
 
+### Week of June 22nd - 22nd, 2020
+
+
+#### June 22nd
+- FleX in Unity
+    - Can export particle positions as JSON, which can be easily parsed in Python into arrays for ground truth
+
+
 ### Week of June 15th - 19th, 2020
 
 
@@ -12,6 +20,8 @@
     - New render with fluid surfaces
 
         ![Fluid with surface](viz_results/houdini/out3.gif)
+
+        ![Fluid emission](viz_results/houdini/out4.gif)
 
 - Surgical scene rendering
     - Haven't found any good (and free) texture and mesh assets that can be used for a more realistic render
