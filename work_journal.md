@@ -6,7 +6,15 @@
 
 #### June 22nd
 - FleX in Unity
-    - Can export particle positions as JSON, which can be easily parsed in Python into arrays for ground truth
+    - Can export particle position 4-vectors in JSON, can be parsed in Python for ground truth
+    - Finished building a scene using medical 3D printing models
+    - Finished one render using this scene
+
+        ![Render](viz_results/unity/out.gif)
+
+- TODOs
+    - Need to get camera view matrix to transform positions into pixel locations
+    - Need to generate a ground truth plot with the pixel locationss
 
 
 ### Week of June 15th - 19th, 2020
