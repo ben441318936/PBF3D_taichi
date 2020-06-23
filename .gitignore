@@ -4,5 +4,6 @@
 *.hipnc
 *.obj
 *.pyc
+*.json
 
 !new.png

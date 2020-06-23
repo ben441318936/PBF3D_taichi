@@ -1,7 +1,18 @@
 ## Work journal
 
 
-### Week of June 22nd - 22nd, 2020
+### Week of June 22nd - 23rd, 2020
+
+#### June 23rd
+- FleX in Unity
+    - Generated a new set of renders
+    - Successfully extracted particle position data and created ground truth masks in image space
+
+    <img src="viz_results/unity/out3.gif" width="200" height="200" />
+
+    <img src="viz_results/unity/out_truth.gif" width="200" height="200" />
+
+    <img src="viz_results/unity/out_blended.gif" width="200" height="200" />
 
 
 #### June 22nd
