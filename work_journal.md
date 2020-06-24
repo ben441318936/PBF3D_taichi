@@ -3,16 +3,19 @@
 
 ### Week of June 22nd - 23rd, 2020
 
+
+
 #### June 23rd
 - FleX in Unity
-    - Generated a new set of renders
-    - Successfully extracted particle position data and created ground truth masks in image space
+    - Generated several new renders
+    - Implemented particle position extraction and mask creation
 
-    <img src="viz_results/unity/out3.gif" width="350" height="200" />
+        <img src="viz_results/unity/out3.gif" width="350" height="200" />
 
-    <img src="viz_results/unity/out_truth.gif" width="350" height="200" />
+        <img src="viz_results/unity/out_truth.gif" width="350" height="200" />
 
-    <img src="viz_results/unity/out_blended.gif" width="350" height="200" />
+        <img src="viz_results/unity/out_blended.gif" width="350" height="200" />
+
 
 
 #### June 22nd

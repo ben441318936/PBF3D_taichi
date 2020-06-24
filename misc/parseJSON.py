@@ -36,9 +36,11 @@ def mapPos(pos, mapMat, width, height):
 
 num_frames = 61
 
+trial_prefix = "Trial5"
+
 #for k in range(num_frames):
-for k in range(1,61):
-    s = "./PData/frame_{:05d}.json".format(k+3)
+for k in range(0,61):
+    s = "./PData/{}/frame_{:05d}.json".format(trial_prefix,k+2)
 
     # Read JSON
     with open(s) as f:
@@ -64,21 +66,21 @@ for k in range(1,61):
 
     # Use Gaussian blur to smooth out and treshold
     img_numpy = gaussian_filter(img_numpy, sigma=30)
-    img_numpy[img_numpy > 0.001] = 1
+    img_numpy[img_numpy > 0.0005] = 1
 
     img_numpy = np.swapaxes(img_numpy,0,1) * 255
     img_numpy = img_numpy[::-1, :]
     image = Image.fromarray(np.uint8(img_numpy),mode="RGB")
     image.putalpha(255)
 
-    s = "./PImages/frame_{:05d}.png".format(k)
+    s = "./PImages/{}/frame_{:05d}.png".format(trial_prefix,k)
     image.save(s)
 
-    img1 = Image.open("./Recordings/frames/image_{:04d}.png".format(k))
-    img2 = Image.open("./PImages/frame_{:05d}.png".format(k))
+    img1 = Image.open("./Recordings/{}/frames/image_{:04d}.png".format(trial_prefix,k))
+    img2 = Image.open("./PImages/{}/frame_{:05d}.png".format(trial_prefix,k))
 
     img3 = Image.blend(img1, img2, 0.3)
-    img3.save("./blended/frame_{:05d}.png".format(k))
+    img3.save("./Blended/{}/frame_{:05d}.png".format(trial_prefix,k))
 
 
 
