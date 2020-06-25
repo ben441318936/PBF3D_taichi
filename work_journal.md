@@ -1,8 +1,16 @@
 ## Work journal
 
 
-### Week of June 22nd - 23rd, 2020
+### Week of June 22nd - 24th, 2020
 
+
+#### June 24th
+- Taichi
+    - Watched Taichi Lecture 4
+    - Worked on implementing differentiable simulation
+        - Modified the data structure and class methods to keep tracks of particle information for each step
+        - This is required for end-to-end differentiation, i.e, from initial conditions to loss evaluated on end state
+        - For now can get one-step derivatives, still need to figure out how to do end-to-end, following [here](https://github.com/yuanming-hu/difftaichi/blob/master/examples/diffmpm.py)
 
 
 #### June 23rd
