@@ -1,7 +1,13 @@
 ## Work journal
 
 
-### Week of June 22nd - 25th, 2020
+### Week of June 22nd - 26th, 2020
+
+
+#### June 26th
+- Taichi
+    - Tested simple end-to-end optimization
+        - Using gradient descent to select the right initial velocity to reach the target positions in 3D projecile motion
 
 
 #### June 25th
@@ -13,7 +19,7 @@
             <img src=simple_comp_graph.jpg width=400 />
 
     - Note gradients are just numbers, need to make sure the loss and corresponding gradients make physical sense and possibly reconsider if the operations can be differetiated in a sensible way
-        - Example: particle falling from only gravity, with ground as boundary, for *t* steps, what is derivative of its final height with respect to its initial height? h_f = h_i + 1/2 g t^2
+        - Example: particle falling from only gravity, with ground as boundary, for *t* steps, what is derivative of its final height with respect to its initial height? h_f = h_i + v_i t + 1/2 g t^2
             - If particle is still in free-fall at *t*
                 - Increasing initial height will also increase height at *t* by same armound, derivative should be 1
                 - Taichi AD matches in the discretized version
@@ -42,6 +48,7 @@
         - Just differentiate the sub-steps that make use of these indicators, which should be consisting of simpler differentiable operations
         - Backpropagated the gradients across the chain of sub-steps by hand (mostly just multiplying with chain rule)
         - Backpropagate across timesteps by hand (more chain rule)
+        - This could give more control over how the overall gradient is computed, and allow us to handle special cases
 
 
 #### June 24th

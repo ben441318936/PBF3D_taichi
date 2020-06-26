@@ -82,6 +82,8 @@ class DiffFluidSim3D:
         self.poly6_factor = 315.0 / 64.0 / np.pi
         self.spiky_grad_factor = -45.0 / np.pi
 
+        self.target = ti.Vector(self.dim, dt=ti.f32)
+
         self.total_pos_delta = ti.Vector(self.dim, dt=ti.f32)
         self.positions = ti.Vector(self.dim, dt=ti.f32)
         self.velocities = ti.Vector(self.dim, dt=ti.f32)
@@ -103,11 +105,14 @@ class DiffFluidSim3D:
 
         self.loss = ti.var(ti.f32, needs_grad=True)
 
-    def initialize(self):
         self.place_vars()
-        self.init_particles
-        self.init_board()
+
         print(f'boundary={self.boundary} grid={self.grid_size} cell_size={self.cell_size}')
+
+
+    def initialize(self):
+        self.init_particles()
+        self.init_board()
 
     def place_vars(self):
         ti.root.dense(ti.i, self.num_particles).place(self.total_pos_delta)
@@ -126,16 +131,34 @@ class DiffFluidSim3D:
 
         ti.root.place(self.board_states)
         
+        ti.root.place(self.target)
         ti.root.place(self.loss)
         ti.root.lazy_grad()
 
-    # @ti.func
-    # def init(self, p: ti.ext_arr(), v: ti.ext_arr()):
-    #     for i in range(self.num_particles):
-    #         for j in range(self.max_timesteps):
-    #             for c in ti.static(range(self.dim)):
-    #                 self.positions[i][j][c] = p[i, c]
-    #                 self.velocities[i][j][c] = v[i, c]
+    @ti.func
+    def init_pos_vel(self):
+        for i in range(self.num_particles):
+            for j in range(self.max_timesteps):
+                for c in ti.static(range(self.dim)):
+                    self.positions[j,i][c] = 0
+                    self.velocities[j,i][c] = 0
+
+    @ti.func
+    def init_total_pos_delta(self):
+        for i in range(self.num_particles):
+            for c in ti.static(range(self.dim)):
+                self.total_pos_delta[i][c] = 0
+
+    @ti.func
+    def init_particle_active(self):
+        for i in range(self.max_timesteps):
+            for j in range(self.num_particles):
+                self.particle_active[i,j] = 0
+
+    @ti.func
+    def init_num_active(self):
+        for i in range(self.max_timesteps):
+            self.num_active[i] = 0
 
     @ti.kernel
     def init_particles(self):
@@ -144,15 +167,20 @@ class DiffFluidSim3D:
         #                                 (self.num_particles,self.dim))
         # np_velocities = (np.random.rand(self.num_particles, self.dim).astype(np.float32) -
         #                 0.5) * 4.0
-        # np_positions = -100 * np.ones((self.num_particles, self.dim))
+        # np_positions = np.zeros((self.num_particles, self.dim))
         # np_velocities = np.zeros((self.num_particles, self.dim))
 
-        # self.init(np_positions, np_velocities)
-        self.total_pos_delta.fill(0.0)
-        self.positions.fill(0.0)
-        self.velocities.fill(0.0)
-        self.particle_active.fill(0)
-        self.num_active.fill(0)
+        # self.init()
+        # self.total_pos_delta.fill(0.0)
+        # self.positions.fill(0.0)
+        # self.velocities.fill(0.0)
+        # self.particle_active.fill(0)
+        # self.num_active.fill(0)
+
+        self.init_pos_vel()
+        self.init_total_pos_delta()
+        self.init_particle_active()
+        self.init_num_active()
 
     # Kernel to emit 1 particle
     @ti.kernel
@@ -468,9 +496,9 @@ class DiffFluidSim3D:
 
         self.apply_total_pos_delta(frame)
 
-        # self.confine_to_boundary(frame)
+        self.confine_to_boundary(frame)
 
-        # self.update_velocities(frame)
+        self.update_velocities(frame)
         # #vorticity_confinement()
         # self.apply_XSPH_viscosity(frame)
 
@@ -550,14 +578,20 @@ class DiffFluidSim3D:
         # print(self.old_positions.grad)
         # print("Alive")
 
+    def set_target(self, target):
+        for i in range(self.dim):
+            self.target[None][i] = target[i]
+
     @ti.kernel
     def compute_loss(self, frame: ti.i32):
         #for i in range(self.max_timesteps):
         # for j in ti.static(range(self.dim)):
         #     self.loss[None] += self.positions[frame,0][j]
-        for i in range(self.num_particles):
-            if self.particle_active[frame, i] == 1:
-                self.loss[None] += self.positions[frame, i][2]
+        # for i in range(self.num_particles):
+        #     #if self.particle_active[frame, i] == 1:
+        #     self.loss[None] = 1/2 * (15 - self.positions[frame, i][0])**2
+        for j in ti.static(range(self.dim)):
+            self.loss[None] += 1/2 * (self.positions[frame, 0][j] - self.target[None][j])**2
 
 
     
