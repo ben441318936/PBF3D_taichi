@@ -10,7 +10,7 @@
     - Some simple propagtions work
         - Propagating from initial position to end position by gravity only, without boundary, is verified with hand-derived computational graph
 
-            ![graph](simple_comp_graph.jpg)
+            <img src=simple_comp_graph.jpg width=400 />
 
     - Note gradients are just numbers, need to make sure the loss and corresponding gradients make physical sense and possibly reconsider if the operations can be differetiated in a sensible way
         - Example: particle falling from only gravity, with ground as boundary, for *t* steps, what is derivative of its final height with respect to its initial height? h_f = h_i + 1/2 g t^2
