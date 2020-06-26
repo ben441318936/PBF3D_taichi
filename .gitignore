@@ -5,5 +5,7 @@
 *.obj
 *.pyc
 *.json
+*.jpg
 
 !new.png
+!simple_comp_graph.jpg

@@ -1,7 +1,47 @@
 ## Work journal
 
 
-### Week of June 22nd - 24th, 2020
+### Week of June 22nd - 25th, 2020
+
+
+#### June 25th
+- Taichi
+    - Working more on end-to-end differentible PBF sim
+    - Some simple propagtions work
+        - Propagating from initial position to end position by gravity only, without boundary, is verified with hand-derived computational graph
+
+            ![graph](simple_comp_graph.jpg)
+
+    - Note gradients are just numbers, need to make sure the loss and corresponding gradients make physical sense and possibly reconsider if the operations can be differetiated in a sensible way
+        - Example: particle falling from only gravity, with ground as boundary, for *t* steps, what is derivative of its final height with respect to its initial height? h_f = h_i + 1/2 g t^2
+            - If particle is still in free-fall at *t*
+                - Increasing initial height will also increase height at *t* by same armound, derivative should be 1
+                - Taichi AD matches in the discretized version
+            - If particle hits the ground at exactly *t*
+                - Left derivative is 0; decreasing initial height will lead to ball hitting ground earlier, but its height at *t* is still on the ground, so decreasing initial height does not change height at *t*
+                - Right derivative is 1; increasing initial height will lead to ball hitting ground later, so its height at *t* will be increased by the same amount
+                - Taichi AD gives 0 in the discretized version
+            - If particle hits the ground some time before *t*
+                - Derivative is similar to the previous case, but right-shifted by same amount as the time of impact
+                - Taichi AD gives -1 in the discretized version
+        - Example: [time discretization itself is not differentiable](https://arxiv.org/pdf/1910.00935.pdf)
+
+    - More problems with AutoDiff that are not fully understood
+        - ti.random() will not work
+        - Emitting particles does not work
+            - Unsupported Numpy operations?
+            - Assigning particle active indicators does not work?
+        - Update grid function does not work
+            - Simply accessing and assigning indicator to a global tensor causes problem
+        - Error in the form "stmt {} cannot have operand {}."
+            - Seems to comes from some kind of [checker](https://github.com/taichi-dev/taichi/blob/master/taichi/analysis/verify.cpp) to make sure the operations to differentiate is supported
+
+    - Consider different ways to do end-to-end gradient
+        - If some sub-steps can't be done with AutoDiff, we can exclude it
+        - For example, emitting and grid update doesn't work, but they simply set indicators and do house keeping
+        - Just differentiate the sub-steps that make use of these indicators, which should be consisting of simpler differentiable operations
+        - Backpropagated the gradients across the chain of sub-steps by hand (mostly just multiplying with chain rule)
+        - Backpropagate across timesteps by hand (more chain rule)
 
 
 #### June 24th

@@ -82,6 +82,7 @@ class DiffFluidSim3D:
         self.poly6_factor = 315.0 / 64.0 / np.pi
         self.spiky_grad_factor = -45.0 / np.pi
 
+        self.total_pos_delta = ti.Vector(self.dim, dt=ti.f32)
         self.positions = ti.Vector(self.dim, dt=ti.f32)
         self.velocities = ti.Vector(self.dim, dt=ti.f32)
         self.particle_active = ti.var(ti.i32)
@@ -109,6 +110,7 @@ class DiffFluidSim3D:
         print(f'boundary={self.boundary} grid={self.grid_size} cell_size={self.cell_size}')
 
     def place_vars(self):
+        ti.root.dense(ti.i, self.num_particles).place(self.total_pos_delta)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions, self.velocities)
         ti.root.dense(ti.i, self.num_particles).place(self.lambdas, self.position_deltas)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.particle_active)
@@ -146,8 +148,9 @@ class DiffFluidSim3D:
         # np_velocities = np.zeros((self.num_particles, self.dim))
 
         # self.init(np_positions, np_velocities)
-        self.positions.fill(0)
-        self.velocities.fill(0)
+        self.total_pos_delta.fill(0.0)
+        self.positions.fill(0.0)
+        self.velocities.fill(0.0)
         self.particle_active.fill(0)
         self.num_active.fill(0)
 
@@ -168,7 +171,7 @@ class DiffFluidSim3D:
             return
         if self.num_active[frame] >= self.num_particles:
             return
-        
+
         color_ind = self.num_active[frame] / self.num_particles
         color_ind = round(0.2 * round(color_ind/0.2) , 1)
         color = self.color_map(color_ind)
@@ -179,12 +182,10 @@ class DiffFluidSim3D:
         for i in range(num):
             if self.num_active[frame] < self.num_particles:
                 offset = np.array([0,xy[i,0],xy[i,1]])
-                self.emit_particles_kernel(frame, init_pos + offset,init_vel)
+                self.emit_particles_kernel(frame, init_pos + offset, init_vel)
                 self.particle_rgba[self.num_active[frame],:] = np.array(color)
                 self.particle_active[frame, self.num_active[frame]] = 1
-                self.num_active[frame] += 1
-            else:
-                break            
+                self.num_active[frame] += 1     
 
 
     @ti.kernel
@@ -236,15 +237,11 @@ class DiffFluidSim3D:
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
             if p[i] <= bmin:
-                p[i] = bmin + self.epsilon * ti.random()
+                p[i] = bmin + self.epsilon #* p[i] / 1000
             elif bmax[i] <= p[i]:
-                p[i] = bmax[i] - self.epsilon * ti.random()
+                p[i] = bmax[i] - self.epsilon #* p[i] / 1000
         return p
 
-    # @ti.kernel
-    # def blit_buffers(self, f: ti.template(), t: ti.template()):
-    #     for i in f:
-    #         t[i] = f[i]
 
     @ti.kernel
     def move_board(self):
@@ -263,33 +260,36 @@ class DiffFluidSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
                 g = ti.Vector([0.0, 0.0, -9.8])
-                pos, vel = self.positions[frame,i], self.velocities[frame,i]
+                pos, vel = self.positions[frame-1,i], self.velocities[frame-1,i]
                 vel += g * self.time_delta
                 pos += vel * self.time_delta
-                self.positions[frame,i] = self.confine_position_to_boundary(pos)
+                #self.positions[frame,i] = self.confine_position_to_boundary(pos)
+                self.total_pos_delta[i] = self.confine_position_to_boundary(pos) - self.positions[frame-1,i]
 
     @ti.kernel
     def confine_to_boundary(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                pos = self.positions[frame,i]
-                self.positions[frame,i] = self.confine_position_to_boundary(pos)
+                pos = self.positions[frame-1,i] + self.total_pos_delta[i]
+                #self.positions[frame,i] = self.confine_position_to_boundary(pos)
+                self.total_pos_delta[i] = self.confine_position_to_boundary(pos) - self.positions[frame-1,i]
 
     @ti.kernel
     def update_grid(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                cell = self.get_cell(self.positions[frame,i])
-                # ti.Vector doesn't seem to support unpacking yet
-                # but we can directly use int Vectors as indices
+                cell = self.get_cell(self.positions[frame-1,i] + self.total_pos_delta[i])
+                # # ti.Vector doesn't seem to support unpacking yet
+                # # but we can directly use int Vectors as indices
                 offs = self.grid_num_particles[cell].atomic_add(1)
                 self.grid2particles[cell, offs] = i
+
 
     @ti.kernel
     def find_particle_neighbors(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                pos_i = self.positions[frame,i]
+                pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
                 cell = self.get_cell(pos_i)
                 nb_i = 0
                 for offs in ti.static(ti.grouped(ti.ndrange((-1, 2), (-1, 2), (-1, 2)))):
@@ -297,7 +297,7 @@ class DiffFluidSim3D:
                     if self.is_in_grid(cell_to_check):
                         for j in range(self.grid_num_particles[cell_to_check]):
                             p_j = self.grid2particles[cell_to_check, j]
-                            if nb_i < self.max_num_neighbors and p_j != i and (pos_i - self.positions[frame,p_j]).norm() < self.neighbor_radius:
+                            if nb_i < self.max_num_neighbors and p_j != i and (pos_i - (self.positions[frame-1,p_j]+self.total_pos_delta[p_j])).norm() < self.neighbor_radius:
                                 self.particle_neighbors[i, nb_i] = p_j
                                 nb_i += 1
                 self.particle_num_neighbors[i] = nb_i
@@ -307,7 +307,7 @@ class DiffFluidSim3D:
         # Eq (8) ~ (11)
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                pos_i = self.positions[frame,i]
+                pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
 
                 grad_i = ti.Vector([0.0, 0.0, 0.0])
                 sum_gradient_sqr = 0.0
@@ -317,7 +317,7 @@ class DiffFluidSim3D:
                     p_j = self.particle_neighbors[i, j]
                     # TODO: does taichi supports break?
                     if p_j >= 0:
-                        pos_ji = pos_i - self.positions[frame,p_j]
+                        pos_ji = pos_i - (self.positions[frame-1,p_j]+self.total_pos_delta[p_j])
                         # grad_j is gradient for jth neighbor
                         # with respect to p_i
                         grad_j = self.spiky_gradient(pos_ji, self.h)
@@ -339,7 +339,7 @@ class DiffFluidSim3D:
         # Eq(12), (14)
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                pos_i = self.positions[frame,i]
+                pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
                 lambda_i = self.lambdas[i]
 
                 pos_delta_i = ti.Vector([0.0, 0.0, 0.0])
@@ -348,7 +348,7 @@ class DiffFluidSim3D:
                     # TODO: does taichi supports break?
                     if p_j >= 0:
                         lambda_j = self.lambdas[p_j]
-                        pos_ji = pos_i - self.positions[frame,p_j]
+                        pos_ji = pos_i - (self.positions[frame,p_j] + self.total_pos_delta[p_j])
                         scorr_ij = self.compute_scorr(pos_ji)
                         pos_delta_i += (lambda_i + lambda_j + scorr_ij) * \
                             self.spiky_gradient(pos_ji, self.h)
@@ -360,7 +360,8 @@ class DiffFluidSim3D:
     def apply_position_deltas(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                self.positions[frame,i] += self.position_deltas[i]
+                #self.positions[frame,i] += self.position_deltas[i]
+                self.total_pos_delta[i] += self.position_deltas[i]
 
     @ti.kernel
     def update_velocities(self, frame: ti.i32):
@@ -433,8 +434,22 @@ class DiffFluidSim3D:
         for i in range(self.num_particles):
             self.particle_active[frame,i] = self.particle_active[frame-1,i]
 
-    def run_pbf(self, frame):
-        self.accum_phys_quants(frame)
+    @ti.kernel
+    def clear_total_pos_delta(self):
+        for i in range(self.num_particles):
+            for j in ti.static(range(self.dim)):
+                self.total_pos_delta[i][j] = 0
+
+    @ti.kernel
+    def apply_total_pos_delta(self, frame: ti.i32):
+        for i in range(self.num_particles):
+            if self.particle_active[frame,i] == 1:
+                self.positions[frame,i] += self.positions[frame-1,i] + self.total_pos_delta[i]
+
+    #@ti.complex_kernel
+    def run_pbf(self, frame: ti.i32):
+        #self.accum_phys_quants(frame)
+        self.clear_total_pos_delta()
 
         self.num_active[frame] = self.num_active[frame-1]
         self.copy_particle_active(frame)
@@ -443,18 +458,21 @@ class DiffFluidSim3D:
 
         self.grid_num_particles.fill(0)
         self.particle_neighbors.fill(-1)
-        self.update_grid(frame)
-        self.find_particle_neighbors(frame)
-        for _ in range(self.pbf_num_iters):
-            self.compute_lambdas(frame)
-            self.compute_position_deltas(frame)
-            self.apply_position_deltas(frame)
-        
-        self.confine_to_boundary(frame)
+        self.grid2particles.fill(0)
+        #self.update_grid(frame)
+        # self.find_particle_neighbors(frame)
+        # for _ in range(self.pbf_num_iters):
+        #     self.compute_lambdas(frame)
+        #     self.compute_position_deltas(frame)
+        #     self.apply_position_deltas(frame)
 
-        self.update_velocities(frame)
-        #vorticity_confinement()
-        self.apply_XSPH_viscosity(frame)
+        self.apply_total_pos_delta(frame)
+
+        # self.confine_to_boundary(frame)
+
+        # self.update_velocities(frame)
+        # #vorticity_confinement()
+        # self.apply_XSPH_viscosity(frame)
 
 
     def render(self,frame):
@@ -522,10 +540,10 @@ class DiffFluidSim3D:
                     self.print_counter = 0
 
         if frame+1 < self.max_timesteps:
-
             self.move_board()
             self.run_pbf(frame+1)
-        
+
+
         # self.loss[None] = 0
         # with ti.Tape(loss=self.loss):
         #     self.compute_loss()
@@ -535,9 +553,11 @@ class DiffFluidSim3D:
     @ti.kernel
     def compute_loss(self, frame: ti.i32):
         #for i in range(self.max_timesteps):
-        for j in ti.static(range(self.dim)):
-            self.loss[None] += self.positions[frame,0][j]
-            
+        # for j in ti.static(range(self.dim)):
+        #     self.loss[None] += self.positions[frame,0][j]
+        for i in range(self.num_particles):
+            if self.particle_active[frame, i] == 1:
+                self.loss[None] += self.positions[frame, i][2]
 
 
     
