@@ -2,7 +2,7 @@ import taichi as ti
 import numpy as np
 from DiffFluidSim3D import DiffFluidSim3D
 
-ti.init(arch=ti.gpu)
+#ti.init(arch=ti.gpu)
 #gui = ti.GUI('PBF3D', (400,400))
 
 #sim = DiffFluidSim3D(num_particles=1, max_timesteps=2, gui=None, do_render=False, do_print_stats=False, render_res=(400,400))
@@ -41,29 +41,30 @@ target = np.array([30, 15, 15])
 
 initial_vel = np.array([10.0,0.0,0.0])
 
-for k in range(100):
-    print("Gradient descent iter {}".format(k))
-    sim.initialize()
-    sim.set_target(target)
-    steps = max_steps-1
-    sim.loss[None] = 0
-    sim.emit_particles(1, 0, np.array([10,10,10]), initial_vel)
+# for k in range(1):
+#     print("Gradient descent iter {}".format(k))
 
-    with ti.Tape(loss=sim.loss):
-        for i in range(steps):        
-            #sim.step(i)
-            sim.run_pbf(i+1)
-            #print("X pos {}: ".format(i), sim.positions[i,0][0])
-            #print("X vel {}: ".format(i), sim.velocities[i,0][0])
-        sim.compute_loss(10)
-    #print("X pos final: ", sim.positions[10,0][0])
-    print("Pos final: ", sim.positions[10,0][0], sim.positions[10,0][1], sim.positions[10,0][2])
-    print("Loss: ", sim.loss[None])
-    #print("Grad to initial pos: ", sim.positions.grad[0,0][0], sim.positions.grad[0,0][1], sim.positions.grad[0,0][2])
-    print("Grad to initial vel: ", sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1], sim.velocities.grad[0,0][2])
+sim.initialize()
+sim.set_target(target)
+steps = max_steps-1
+sim.loss[None] = 0
+sim.emit_particles(1, 0, np.array([10,10,10]), initial_vel)
 
-    if sim.loss[None] <= 1e-5:
-        break
+with ti.Tape(loss=sim.loss):
+    for i in range(steps):        
+        #sim.step(i)
+        sim.run_pbf(i+1)
+        #print("X pos {}: ".format(i), sim.positions[i,0][0])
+        #print("X vel {}: ".format(i), sim.velocities[i,0][0])
+    sim.compute_loss(10)
+#print("X pos final: ", sim.positions[10,0][0])
+print("Pos final: ", sim.positions[10,0][0], sim.positions[10,0][1], sim.positions[10,0][2])
+print("Loss: ", sim.loss[None])
+print("Grad to initial pos: ", sim.positions.grad[0,0][0], sim.positions.grad[0,0][1], sim.positions.grad[0,0][2])
+print("Grad to initial vel: ", sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1], sim.velocities.grad[0,0][2])
 
-    initial_vel = initial_vel - 5e-4 * np.array([sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1], sim.velocities.grad[0,0][2]])
-    print("New initial_vel: ", initial_vel)
+#     if sim.loss[None] <= 1e-5:
+#         break
+
+#     initial_vel = initial_vel - 5e-4 * np.array([sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1], sim.velocities.grad[0,0][2]])
+#     print("New initial_vel: ", initial_vel)

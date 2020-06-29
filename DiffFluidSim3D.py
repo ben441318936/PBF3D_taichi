@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 ti.init(arch=ti.gpu)
 
+
 @ti.data_oriented
 class DiffFluidSim3D:
     def __init__(self, 
@@ -249,7 +250,7 @@ class DiffFluidSim3D:
 
     @ti.func
     def get_cell(self, pos):
-        return (pos * self.cell_recpr).cast(int)
+        return ti.cast(pos * self.cell_recpr, ti.i32)
 
     @ti.func
     def is_in_grid(self,c):
@@ -265,9 +266,9 @@ class DiffFluidSim3D:
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
             if p[i] <= bmin:
-                p[i] = bmin + self.epsilon #* p[i] / 1000
+                p[i] = bmin + self.epsilon
             elif bmax[i] <= p[i]:
-                p[i] = bmax[i] - self.epsilon #* p[i] / 1000
+                p[i] = bmax[i] - self.epsilon
         return p
 
 
@@ -307,11 +308,11 @@ class DiffFluidSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
                 cell = self.get_cell(self.positions[frame-1,i] + self.total_pos_delta[i])
-                # # ti.Vector doesn't seem to support unpacking yet
-                # # but we can directly use int Vectors as indices
-                offs = self.grid_num_particles[cell].atomic_add(1)
-                self.grid2particles[cell, offs] = i
-
+                # ti.Vector doesn't seem to support unpacking yet
+                # but we can directly use int Vectors as indices
+                ind = self.grid_num_particles[cell]
+                self.grid2particles[cell, ind] = i
+                self.grid_num_particles[cell].atomic_add(1)
 
     @ti.kernel
     def find_particle_neighbors(self, frame: ti.i32):
@@ -487,7 +488,7 @@ class DiffFluidSim3D:
         self.grid_num_particles.fill(0)
         self.particle_neighbors.fill(-1)
         self.grid2particles.fill(0)
-        #self.update_grid(frame)
+        self.update_grid(frame)
         # self.find_particle_neighbors(frame)
         # for _ in range(self.pbf_num_iters):
         #     self.compute_lambdas(frame)

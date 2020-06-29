@@ -1,6 +1,14 @@
 ## Work journal
 
 
+### Week of June 29th - 29th, 2020
+
+
+#### June 29th
+- Taichi
+    - Implemented fix for "stmt ... cannot have operend ..." in update grid kernel
+
+
 ### Week of June 22nd - 26th, 2020
 
 
@@ -13,7 +21,7 @@
 #### June 25th
 - Taichi
     - Working more on end-to-end differentible PBF sim
-    - Some simple propagtions work
+    - Some simple propagations work
         - Propagating from initial position to end position by gravity only, without boundary, is verified with hand-derived computational graph
 
             <img src=simple_comp_graph.jpg width=400 />
