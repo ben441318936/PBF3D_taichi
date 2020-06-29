@@ -124,7 +124,7 @@ class DiffFluidSim3D:
 
         grid_snode = ti.root.dense(ti.ijk, self.grid_size)
         grid_snode.place(self.grid_num_particles)
-        grid_snode.dense(ti.l, self.max_num_particles_per_cell).place(self.grid2particles)
+        grid_snode.dense(ti.l, self.num_particles).place(self.grid2particles)
 
         nb_node = ti.root.dense(ti.i, self.num_particles)
         nb_node.place(self.particle_num_neighbors)
@@ -310,9 +310,14 @@ class DiffFluidSim3D:
                 cell = self.get_cell(self.positions[frame-1,i] + self.total_pos_delta[i])
                 # ti.Vector doesn't seem to support unpacking yet
                 # but we can directly use int Vectors as indices
-                ind = self.grid_num_particles[cell]
-                self.grid2particles[cell, ind] = i
-                self.grid_num_particles[cell].atomic_add(1)
+
+                # From pbf2d
+                # offs = self.grid_num_particles[cell].atomic_add(1)
+                # self.grid2particles[cell, offs] = i
+
+                # Make grid2particles and indicator tensor
+                self.grid2particles[cell, i] = 1
+        
 
     @ti.kernel
     def find_particle_neighbors(self, frame: ti.i32):
@@ -485,6 +490,7 @@ class DiffFluidSim3D:
         
         self.apply_gravity_within_boundary(frame)
 
+        # Fill with -1 here so we can atomic increment in update
         self.grid_num_particles.fill(0)
         self.particle_neighbors.fill(-1)
         self.grid2particles.fill(0)

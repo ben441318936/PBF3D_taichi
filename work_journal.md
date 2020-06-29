@@ -7,6 +7,10 @@
 #### June 29th
 - Taichi
     - Implemented fix for "stmt ... cannot have operend ..." in update grid kernel
+        - The return from atomic_add can not be used for indexing for some reason
+        - Previous fix is not thread-safe (simultaneous read of index, and thus writting to the same index)
+        - Changed grid2particle to an indicator tensor and use the particle ID as index
+        - Might decrease performance since we have to do a longer loop when checking neighbors
 
 
 ### Week of June 22nd - 26th, 2020
