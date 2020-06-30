@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 
 ti.init(arch=ti.gpu)
 
-
 @ti.data_oriented
 class DiffFluidSim3D:
     def __init__(self, 
@@ -83,15 +82,10 @@ class DiffFluidSim3D:
         self.poly6_factor = 315.0 / 64.0 / np.pi
         self.spiky_grad_factor = -45.0 / np.pi
 
-        self.target = ti.Vector(self.dim, dt=ti.f32)
-
-        self.total_pos_delta = ti.Vector(self.dim, dt=ti.f32)
         self.positions = ti.Vector(self.dim, dt=ti.f32)
         self.velocities = ti.Vector(self.dim, dt=ti.f32)
         self.particle_active = ti.var(ti.i32)
         self.num_active = ti.var(ti.i32)
-
-        self.pos_bound_offset = ti.var(dt=ti.f32)
 
         self.num_active_changed = False
         self.particle_rgba = np.zeros((self.num_particles,4))
@@ -102,27 +96,19 @@ class DiffFluidSim3D:
         self.particle_num_neighbors = ti.var(ti.i32)
         self.particle_neighbors = ti.var(ti.i32)
         self.lambdas = ti.var(ti.f32)
-        self.lambdas_grad_i = ti.Vector(self.dim, ti.f32)
-        self.lambdas_sum_gradient_sqr_i = ti.var(ti.f32)
-        self.lambdas_density_constraints_i = ti.var(ti.f32)
-
         self.position_deltas = ti.Vector(self.dim, dt=ti.f32)
         # 0: x-pos, 1: timestep in sin()
         self.board_states = ti.Vector(2, dt=ti.f32)
 
         self.loss = ti.var(ti.f32, needs_grad=True)
 
+    def initialize(self):
         self.place_vars()
-
+        self.init_particles
+        self.init_board()
         print(f'boundary={self.boundary} grid={self.grid_size} cell_size={self.cell_size}')
 
-
-    def initialize(self):
-        self.init_particles()
-        self.init_board()
-
     def place_vars(self):
-        ti.root.dense(ti.i, self.num_particles).place(self.total_pos_delta)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions, self.velocities)
         ti.root.dense(ti.i, self.num_particles).place(self.lambdas, self.position_deltas)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.particle_active)
@@ -130,53 +116,24 @@ class DiffFluidSim3D:
 
         grid_snode = ti.root.dense(ti.ijk, self.grid_size)
         grid_snode.place(self.grid_num_particles)
-        grid_snode.dense(ti.l, self.num_particles).place(self.grid2particles)
+        grid_snode.dense(ti.l, self.max_num_particles_per_cell).place(self.grid2particles)
 
         nb_node = ti.root.dense(ti.i, self.num_particles)
         nb_node.place(self.particle_num_neighbors)
         nb_node.dense(ti.j, self.max_num_neighbors).place(self.particle_neighbors)
 
-        ti.root.dense(ti.i, self.num_particles).place(self.lambdas_grad_i)
-        ti.root.dense(ti.i, self.num_particles).place(self.lambdas_sum_gradient_sqr_i)
-        ti.root.dense(ti.i, self.num_particles).place(self.lambdas_density_constraints_i)
-
         ti.root.place(self.board_states)
-
-        ti.root.dense(ti.i, self.num_particles).place(self.pos_bound_offset)
         
-        ti.root.place(self.target)
         ti.root.place(self.loss)
         ti.root.lazy_grad()
 
-    @ti.func
-    def init_pos_vel(self):
-        for i in range(self.num_particles):
-            for j in range(self.max_timesteps):
-                for c in ti.static(range(self.dim)):
-                    self.positions[j,i][c] = 0
-                    self.velocities[j,i][c] = 0
-
-    @ti.func
-    def init_total_pos_delta(self):
-        for i in range(self.num_particles):
-            for c in ti.static(range(self.dim)):
-                self.total_pos_delta[i][c] = 0
-
-    @ti.func
-    def init_particle_active(self):
-        for i in range(self.max_timesteps):
-            for j in range(self.num_particles):
-                self.particle_active[i,j] = 0
-
-    @ti.func
-    def init_num_active(self):
-        for i in range(self.max_timesteps):
-            self.num_active[i] = 0
-
-    @ti.func
-    def init_pos_bound_offset(self):
-        for i in range(self.num_particles):
-            self.pos_bound_offset[i] = ti.random()
+    # @ti.func
+    # def init(self, p: ti.ext_arr(), v: ti.ext_arr()):
+    #     for i in range(self.num_particles):
+    #         for j in range(self.max_timesteps):
+    #             for c in ti.static(range(self.dim)):
+    #                 self.positions[i][j][c] = p[i, c]
+    #                 self.velocities[i][j][c] = v[i, c]
 
     @ti.kernel
     def init_particles(self):
@@ -185,21 +142,14 @@ class DiffFluidSim3D:
         #                                 (self.num_particles,self.dim))
         # np_velocities = (np.random.rand(self.num_particles, self.dim).astype(np.float32) -
         #                 0.5) * 4.0
-        # np_positions = np.zeros((self.num_particles, self.dim))
+        # np_positions = -100 * np.ones((self.num_particles, self.dim))
         # np_velocities = np.zeros((self.num_particles, self.dim))
 
-        # self.init()
-        # self.total_pos_delta.fill(0.0)
-        # self.positions.fill(0.0)
-        # self.velocities.fill(0.0)
-        # self.particle_active.fill(0)
-        # self.num_active.fill(0)
-
-        self.init_pos_vel()
-        self.init_total_pos_delta()
-        self.init_particle_active()
-        self.init_num_active()
-        self.init_pos_bound_offset()
+        # self.init(np_positions, np_velocities)
+        self.positions.fill(0)
+        self.velocities.fill(0)
+        self.particle_active.fill(0)
+        self.num_active.fill(0)
 
     # Kernel to emit 1 particle
     @ti.kernel
@@ -218,7 +168,7 @@ class DiffFluidSim3D:
             return
         if self.num_active[frame] >= self.num_particles:
             return
-
+        
         color_ind = self.num_active[frame] / self.num_particles
         color_ind = round(0.2 * round(color_ind/0.2) , 1)
         color = self.color_map(color_ind)
@@ -229,10 +179,12 @@ class DiffFluidSim3D:
         for i in range(num):
             if self.num_active[frame] < self.num_particles:
                 offset = np.array([0,xy[i,0],xy[i,1]])
-                self.emit_particles_kernel(frame, init_pos + offset, init_vel)
+                self.emit_particles_kernel(frame, init_pos + offset,init_vel)
                 self.particle_rgba[self.num_active[frame],:] = np.array(color)
                 self.particle_active[frame, self.num_active[frame]] = 1
-                self.num_active[frame] += 1     
+                self.num_active[frame] += 1
+            else:
+                break            
 
 
     @ti.kernel
@@ -268,7 +220,7 @@ class DiffFluidSim3D:
 
     @ti.func
     def get_cell(self, pos):
-        return ti.cast(pos * self.cell_recpr, ti.i32)
+        return (pos * self.cell_recpr).cast(int)
 
     @ti.func
     def is_in_grid(self,c):
@@ -277,18 +229,22 @@ class DiffFluidSim3D:
             ] and c[1] < self.grid_size[1] and 0 <= c[2] and c[2] < self.grid_size[2]
 
     @ti.func
-    def confine_position_to_boundary(self, p):
+    def confine_position_to_boundary(self,p):
         bmin = self.particle_radius_in_world
         # First coordinate is for the x position of the board, which only moves in x
         bmax = ti.Vector([self.board_states[None][0], self.boundary[1], self.boundary[2]]) - self.particle_radius_in_world
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
             if p[i] <= bmin:
-                p[i] = bmin + self.epsilon# * self.pos_bound_offset[part]
+                p[i] = bmin + self.epsilon * ti.random()
             elif bmax[i] <= p[i]:
-                p[i] = bmax[i] - self.epsilon# * self.pos_bound_offset[part]
+                p[i] = bmax[i] - self.epsilon * ti.random()
         return p
 
+    # @ti.kernel
+    # def blit_buffers(self, f: ti.template(), t: ti.template()):
+    #     for i in f:
+    #         t[i] = f[i]
 
     @ti.kernel
     def move_board(self):
@@ -307,136 +263,83 @@ class DiffFluidSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
                 g = ti.Vector([0.0, 0.0, -9.8])
-                pos, vel = self.positions[frame-1,i], self.velocities[frame-1,i]
+                pos, vel = self.positions[frame,i], self.velocities[frame,i]
                 vel += g * self.time_delta
                 pos += vel * self.time_delta
-                #self.positions[frame,i] = self.confine_position_to_boundary(pos)
-                self.total_pos_delta[i] = self.confine_position_to_boundary(pos) - self.positions[frame-1,i]
+                self.positions[frame,i] = self.confine_position_to_boundary(pos)
 
     @ti.kernel
     def confine_to_boundary(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                pos = self.positions[frame-1,i] + self.total_pos_delta[i]
-                #self.positions[frame,i] = self.confine_position_to_boundary(pos)
-                self.total_pos_delta[i] = self.confine_position_to_boundary(pos) - self.positions[frame-1,i]
+                pos = self.positions[frame,i]
+                self.positions[frame,i] = self.confine_position_to_boundary(pos)
 
     @ti.kernel
     def update_grid(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                cell = self.get_cell(self.positions[frame-1,i] + self.total_pos_delta[i])
+                cell = self.get_cell(self.positions[frame,i])
                 # ti.Vector doesn't seem to support unpacking yet
                 # but we can directly use int Vectors as indices
-
-                # From pbf2d
-                # offs = self.grid_num_particles[cell].atomic_add(1)
-                # self.grid2particles[cell, offs] = i
-
-                # Make grid2particles and indicator tensor
-                self.grid2particles[cell, i] = 1
-        
+                offs = self.grid_num_particles[cell].atomic_add(1)
+                self.grid2particles[cell, offs] = i
 
     @ti.kernel
     def find_particle_neighbors(self, frame: ti.i32):
-        # for i in range(self.num_particles):
-        #     if self.particle_active[frame,i] == 1:
-        #         pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
-        #         cell = self.get_cell(pos_i)
-        #         nb_i = 0
-        #         for p_j in range(self.num_particles):
-        #             for offs in ti.static(ti.grouped(ti.ndrange((-1, 2), (-1, 2), (-1, 2)))):
-        #                 cell_to_check = cell + offs
-        #                 if self.is_in_grid(cell_to_check):
-        #                     #for j in range(self.grid_num_particles[cell_to_check]):
-                            
-        #                     if self.grid2particles[cell_to_check, p_j] == 1:
-        #                         #p_j = self.grid2particles[cell_to_check, j]
-        #                         if nb_i < self.max_num_neighbors and p_j != i:
-        #                             dist = (pos_i - (self.positions[frame-1,p_j]+self.total_pos_delta[p_j])).norm()
-        #                             if (dist < self.neighbor_radius):
-        #                                 self.particle_neighbors[i, nb_i] = p_j
-        #                                 nb_i += 1
-        #         self.particle_num_neighbors[i] = nb_i
-
         for i in range(self.num_particles):
-            for j in range(self.num_particles):
-                if self.particle_active[frame, i] == 1:
-                    if i != j and self.particle_num_neighbors[i] < self.max_num_neighbors:
-                        pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
-                        cell = self.get_cell(pos_i)
-                        for offs in ti.static(ti.grouped(ti.ndrange((-1, 2), (-1, 2), (-1, 2)))): 
-                            cell_to_check = cell + offs
-                            if self.is_in_grid(cell_to_check):
-                                if self.grid2particles[cell_to_check, j] == 1:
-                                        dist = (pos_i - (self.positions[frame-1,j] + self.total_pos_delta[j])).norm()
-                                        if (dist < self.neighbor_radius):
-                                            self.particle_neighbors[i, self.particle_num_neighbors[i]] = j
-                                            self.particle_num_neighbors[i] += 1
-
-    @ti.kernel
-    def compute_lambdas_contris(self, frame: ti.i32):
-        # Eq (8) ~ (11)
-        for i in range(self.num_particles):
-            for j in range(self.particle_num_neighbors[i]):
-                if self.particle_active[frame, i] == 1:
-                    p_j = self.particle_neighbors[i,j]
-                    if p_j >= 0:
-                        pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
-                        pos_ji = pos_i - (self.positions[frame-1,p_j] + self.total_pos_delta[p_j])
-
-                        grad_j = self.spiky_gradient(pos_ji, self.h)
-                        self.lambdas_grad_i[i] += grad_j
-                        # self.lambdas_sum_gradient_sqr_i[i] += grad_j.dot(grad_j)
-                        # # Eq (2)
-                        # self.lambdas_density_constraints_i[i] += self.poly6_value(pos_ji.norm(), self.h)
+            if self.particle_active[frame,i] == 1:
+                pos_i = self.positions[frame,i]
+                cell = self.get_cell(pos_i)
+                nb_i = 0
+                for offs in ti.static(ti.grouped(ti.ndrange((-1, 2), (-1, 2), (-1, 2)))):
+                    cell_to_check = cell + offs
+                    if self.is_in_grid(cell_to_check):
+                        for j in range(self.grid_num_particles[cell_to_check]):
+                            p_j = self.grid2particles[cell_to_check, j]
+                            if nb_i < self.max_num_neighbors and p_j != i and (pos_i - self.positions[frame,p_j]).norm() < self.neighbor_radius:
+                                self.particle_neighbors[i, nb_i] = p_j
+                                nb_i += 1
+                self.particle_num_neighbors[i] = nb_i
 
     @ti.kernel
     def compute_lambdas(self, frame: ti.i32):
-        # # Eq (8) ~ (11)
-        # for i in range(self.num_particles):
-        #     if self.particle_active[frame,i] == 1:
-        #         pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
-
-        #         grad_i = ti.Vector([0.0, 0.0, 0.0])
-        #         sum_gradient_sqr = 0.0
-        #         density_constraint = 0.0
-
-        #         for j in range(self.particle_num_neighbors[i]):
-        #             p_j = self.particle_neighbors[i, j]
-        #             # TODO: does taichi supports break?
-        #             if p_j >= 0:
-        #                 pos_ji = pos_i - (self.positions[frame-1,p_j] + self.total_pos_delta[p_j])
-        #                 # grad_j is gradient for jth neighbor
-        #                 # with respect to p_i
-        #                 grad_j = self.spiky_gradient(pos_ji, self.h)
-        #                 # All these accumulations do not work for gradient
-        #                 grad_i += grad_j
-        #                 sum_gradient_sqr += grad_j.dot(grad_j)
-        #                 # # Eq(2)
-        #                 density_constraint += self.poly6_value(pos_ji.norm(), self.h)
-
-        #         # Eq(1)
-        #         density_constraint = (self.mass * density_constraint / self.rho0) - 1.0
-
-        #         sum_gradient_sqr += grad_i.dot(grad_i)
-        #         self.lambdas[i] = (-density_constraint) / (sum_gradient_sqr +
-        #                                                 self.lambda_epsilon)
-
+        # Eq (8) ~ (11)
         for i in range(self.num_particles):
-            if self.particle_active[frame, i] == 1:
-                # Eq (1)
-                density_constraint = (self.mass * self.lambdas_density_constraints_i[i] / self.rho0) - 1.0
-                self.lambdas_sum_gradient_sqr_i[i] += self.lambdas_grad_i[i].dot(self.lambdas_grad_i[i])
-                self.lambdas[i] = (-density_constraint) / (self.lambdas_density_constraints_i[i] +
-                                                                            self.lambda_epsilon)
+            if self.particle_active[frame,i] == 1:
+                pos_i = self.positions[frame,i]
+
+                grad_i = ti.Vector([0.0, 0.0, 0.0])
+                sum_gradient_sqr = 0.0
+                density_constraint = 0.0
+
+                for j in range(self.particle_num_neighbors[i]):
+                    p_j = self.particle_neighbors[i, j]
+                    # TODO: does taichi supports break?
+                    if p_j >= 0:
+                        pos_ji = pos_i - self.positions[frame,p_j]
+                        # grad_j is gradient for jth neighbor
+                        # with respect to p_i
+                        grad_j = self.spiky_gradient(pos_ji, self.h)
+                        grad_i += grad_j
+                        sum_gradient_sqr += grad_j.dot(grad_j)
+                        # Eq(2)
+                        density_constraint += self.poly6_value(pos_ji.norm(), self.h)
+
+                # Eq(1)
+                density_constraint = (self.mass * density_constraint / self.rho0) - 1.0
+
+                sum_gradient_sqr += grad_i.dot(grad_i)
+                self.lambdas[i] = (-density_constraint) / (sum_gradient_sqr +
+                                                        self.lambda_epsilon)
+
 
     @ti.kernel
     def compute_position_deltas(self, frame: ti.i32):
         # Eq(12), (14)
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                pos_i = self.positions[frame-1,i] + self.total_pos_delta[i]
+                pos_i = self.positions[frame,i]
                 lambda_i = self.lambdas[i]
 
                 pos_delta_i = ti.Vector([0.0, 0.0, 0.0])
@@ -445,7 +348,7 @@ class DiffFluidSim3D:
                     # TODO: does taichi supports break?
                     if p_j >= 0:
                         lambda_j = self.lambdas[p_j]
-                        pos_ji = pos_i - (self.positions[frame-1,p_j] + self.total_pos_delta[p_j])
+                        pos_ji = pos_i - self.positions[frame,p_j]
                         scorr_ij = self.compute_scorr(pos_ji)
                         pos_delta_i += (lambda_i + lambda_j + scorr_ij) * \
                             self.spiky_gradient(pos_ji, self.h)
@@ -457,8 +360,7 @@ class DiffFluidSim3D:
     def apply_position_deltas(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                #self.positions[frame,i] += self.position_deltas[i]
-                self.total_pos_delta[i] += self.position_deltas[i]
+                self.positions[frame,i] += self.position_deltas[i]
 
     @ti.kernel
     def update_velocities(self, frame: ti.i32):
@@ -531,29 +433,8 @@ class DiffFluidSim3D:
         for i in range(self.num_particles):
             self.particle_active[frame,i] = self.particle_active[frame-1,i]
 
-    @ti.kernel
-    def clear_total_pos_delta(self):
-        for i in range(self.num_particles):
-            for j in ti.static(range(self.dim)):
-                self.total_pos_delta[i][j] = 0
-
-    @ti.kernel
-    def apply_total_pos_delta(self, frame: ti.i32):
-        for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
-                self.positions[frame,i] += self.positions[frame-1,i] + self.total_pos_delta[i]
-
-    @ti.kernel
-    def clear_lambdas_grad_i(self):
-        for i in range(self.num_particles):
-            for k in ti.static(range(self.dim)):
-                self.lambdas_grad_i[i][k] = 0
-
-
-    #@ti.complex_kernel
-    def run_pbf(self, frame: ti.i32):
-        #self.accum_phys_quants(frame)
-        self.clear_total_pos_delta()
+    def run_pbf(self, frame):
+        self.accum_phys_quants(frame)
 
         self.num_active[frame] = self.num_active[frame-1]
         self.copy_particle_active(frame)
@@ -562,29 +443,18 @@ class DiffFluidSim3D:
 
         self.grid_num_particles.fill(0)
         self.particle_neighbors.fill(-1)
-        self.grid2particles.fill(0)
         self.update_grid(frame)
-
-        self.particle_num_neighbors.fill(0)
         self.find_particle_neighbors(frame)
-
         for _ in range(self.pbf_num_iters):
-
-            self.clear_lambdas_grad_i()
-            self.lambdas_density_constraints_i.fill(0.0)
-            self.lambdas_sum_gradient_sqr_i.fill(0.0)
-
-            self.compute_lambdas_contris(frame)
             self.compute_lambdas(frame)
-            # self.compute_position_deltas(frame)
-            # self.apply_position_deltas(frame)
+            self.compute_position_deltas(frame)
+            self.apply_position_deltas(frame)
         
         self.confine_to_boundary(frame)
-        self.apply_total_pos_delta(frame)
 
         self.update_velocities(frame)
-        # #vorticity_confinement()
-        # self.apply_XSPH_viscosity(frame)
+        #vorticity_confinement()
+        self.apply_XSPH_viscosity(frame)
 
 
     def render(self,frame):
@@ -652,30 +522,22 @@ class DiffFluidSim3D:
                     self.print_counter = 0
 
         if frame+1 < self.max_timesteps:
+
             self.move_board()
             self.run_pbf(frame+1)
-
-
+        
         # self.loss[None] = 0
         # with ti.Tape(loss=self.loss):
         #     self.compute_loss()
         # print(self.old_positions.grad)
         # print("Alive")
 
-    def set_target(self, target):
-        for i in range(self.dim):
-            self.target[None][i] = target[i]
-
     @ti.kernel
     def compute_loss(self, frame: ti.i32):
         #for i in range(self.max_timesteps):
-        # for j in ti.static(range(self.dim)):
-        #     self.loss[None] += self.positions[frame,0][j]
-        # for i in range(self.num_particles):
-        #     #if self.particle_active[frame, i] == 1:
-        #     self.loss[None] = 1/2 * (15 - self.positions[frame, i][0])**2
         for j in ti.static(range(self.dim)):
-            self.loss[None] += 1/2 * (self.positions[frame, 0][j] - self.target[None][j])**2
+            self.loss[None] += self.positions[frame,0][j]
+            
 
 
     

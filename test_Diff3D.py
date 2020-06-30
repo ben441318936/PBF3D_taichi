@@ -32,9 +32,9 @@ from DiffFluidSim3D import DiffFluidSim3D
 #     #     print(sim.positions.grad[0,0][0])
 #     #     break
 
-max_steps = 15
+max_steps = 3
 
-sim = DiffFluidSim3D(num_particles=3, max_timesteps=max_steps, do_print_stats=False)
+sim = DiffFluidSim3D(num_particles=10, max_timesteps=max_steps, do_print_stats=False)
 sim.initialize()
 
 target = np.array([30, 15, 15])
@@ -48,7 +48,7 @@ sim.initialize()
 sim.set_target(target)
 steps = max_steps-1
 sim.loss[None] = 0
-sim.emit_particles(1, 0, np.array([10,10,10]), initial_vel)
+sim.emit_particles(5, 0, np.array([10,10,10]), initial_vel)
 
 with ti.Tape(loss=sim.loss):
     for i in range(steps):        
@@ -56,9 +56,9 @@ with ti.Tape(loss=sim.loss):
         sim.run_pbf(i+1)
         #print("X pos {}: ".format(i), sim.positions[i,0][0])
         #print("X vel {}: ".format(i), sim.velocities[i,0][0])
-    sim.compute_loss(10)
+    sim.compute_loss(2)
 #print("X pos final: ", sim.positions[10,0][0])
-print("Pos final: ", sim.positions[10,0][0], sim.positions[10,0][1], sim.positions[10,0][2])
+print("Pos final: ", sim.positions[2,0][0], sim.positions[2,0][1], sim.positions[2,0][2])
 print("Loss: ", sim.loss[None])
 print("Grad to initial pos: ", sim.positions.grad[0,0][0], sim.positions.grad[0,0][1], sim.positions.grad[0,0][2])
 print("Grad to initial vel: ", sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1], sim.velocities.grad[0,0][2])

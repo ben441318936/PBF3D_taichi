@@ -10,7 +10,17 @@
         - The return from atomic_add can not be used for indexing for some reason
         - Previous fix is not thread-safe (simultaneous read of index, and thus writting to the same index)
         - Changed grid2particle to an indicator tensor and use the particle ID as index
-        - Might decrease performance since we have to do a longer loop when checking neighbors
+        - This is a messy work around
+        - Might decrease performance since we have to do a longer loop when checking neighbors, but should be fine
+    - compute_lambdas gradient accumulation also has "stmt ... cannot have operand ..." error
+        - Can't add the results from spiky_gradient to grad accumulator?
+        - Did some major rewrite, with global data structure and kernel simplicity rule
+        - Seems like the problem is when trying to accumulate a Taichi function return?
+        - Possibly a bug? Currently can't think of any work-arounds like the grid_update issue
+    - Need to have some random offsets when handling boundary condition, but it seems to mess with auto-diff
+    - Overall progress on differentiable simulation is hindered by Taichi issues
+        - Somewhat hard to debug since this error message is not well documented
+        - Statements that are similar can work or break, so it's hard to isolate issues
 
 
 ### Week of June 22nd - 26th, 2020
