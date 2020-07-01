@@ -14,6 +14,7 @@
         ![suction](viz_results/suction/out.gif)
 
     - Moving to use hand derived gradients for differentiable simulation
+        - Implemented and testing backprop for gravity and position-based velocity update
 
 
 #### June 29th
