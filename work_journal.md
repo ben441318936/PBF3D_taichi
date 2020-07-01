@@ -1,7 +1,19 @@
 ## Work journal
 
 
-### Week of June 29th - 29th, 2020
+### Week of June 29th - 30th, 2020
+
+
+#### June 30th
+- Taichi
+    - Implementing suction
+        - Suction apparatus is coded as a boundary condition
+        - The apparatus rectangle can move and affect (push) the particles
+        - Suction is coded as removing particles that are within some distance from the the bottom of the apparatus
+
+        ![suction](viz_results/suction/out.gif)
+
+    - Moving to use hand derived gradients for differentiable simulation
 
 
 #### June 29th
