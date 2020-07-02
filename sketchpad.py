@@ -1,3 +1,5 @@
-for i in range(1):
-    print(i)
+from hand_grad_sim import HandGradSim
 
+sim = HandGradSim()
+
+sim.test_spiky_grad_backward()

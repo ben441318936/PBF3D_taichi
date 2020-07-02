@@ -7,7 +7,7 @@ loss = 10
 k = 0
 
 initial_pos = np.array([10.0, 10.0])
-initial_vel = np.array([10.0, 0.0])
+initial_vel = np.array([9.0, 0.0])
 
 while loss > 1e-5 and k <= 100:
 
@@ -24,8 +24,8 @@ while loss > 1e-5 and k <= 100:
     print("Grad to initial pos:", sim.positions.grad[0,0][0], sim.positions.grad[0,0][1])
     print("Grad to initial vel:", sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1])
 
-    # initial_vel -= 1e-1 * np.array([sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1]])
-    # print("New initial vel:", initial_vel)
+    initial_vel -= 1e-1 * np.array([sim.velocities.grad[0,0][0], sim.velocities.grad[0,0][1]])
+    print("New initial vel:", initial_vel)
 
-    initial_pos -= 5e-1 * np.array([sim.positions.grad[0,0][0], sim.positions.grad[0,0][1]])
-    print("New initial pos:", initial_pos)
+    # initial_pos -= 5e-1 * np.array([sim.positions.grad[0,0][0], sim.positions.grad[0,0][1]])
+    # print("New initial pos:", initial_pos)

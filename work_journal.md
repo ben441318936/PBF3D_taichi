@@ -1,7 +1,16 @@
 ## Work journal
 
 
-### Week of June 29th - 30th, 2020
+### Week of June 29th - JUly 1st, 2020
+
+
+#### July 1st
+- Differentiable simulation
+    - Derived gradients for computing density constraint Lagrange multipliers
+    - Implemented the above gradients
+        - Seems correct so far, can use gradient descent to drive lambdas toward desired value
+        - Need more extensive tests to make sure the gradients are correct, can try to use automatic numerical gradients for comparison
+    - Next steps are implementing the rest of PBF
 
 
 #### June 30th
