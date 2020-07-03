@@ -52,9 +52,9 @@ while loss > 1e-10 and k < 100:
 
     loss_grad = (s - target_lambda)
         
-    # initial_pos0 -= lr * loss_grad * np.array([sim.positions.grad[0,0][0], sim.positions.grad[0,0][1]])
+    initial_pos0 -= lr * loss_grad * np.array([sim.positions.grad[0,0][0], sim.positions.grad[0,0][1]])
     # initial_pos1 -= lr * loss_grad * np.array([sim.positions.grad[0,1][0], sim.positions.grad[0,1][1]])
-    initial_pos2 -= lr * loss_grad * np.array([sim.positions.grad[0,2][0], sim.positions.grad[0,2][1]])
+    # initial_pos2 -= lr * loss_grad * np.array([sim.positions.grad[0,2][0], sim.positions.grad[0,2][1]])
     # initial_pos3 -= lr * loss_grad * np.array([sim.positions.grad[0,3][0], sim.positions.grad[0,3][1]])
 
     print("New initial pos 0:", initial_pos0[0], initial_pos0[1])
