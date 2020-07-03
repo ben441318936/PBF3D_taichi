@@ -36,10 +36,6 @@ while loss > 1e-10 and k < 100:
     sim.find_particle_neighbors(1)
     sim.compute_lambdas_forward(1)
 
-    sim.clear_grads()
-    sim.compute_lambdas_backward(1)
-    sim.gravity_backward(1)
-
     s = 0
     for i in range(sim.num_particles):
         s += sim.lambdas[i]
@@ -47,6 +43,16 @@ while loss > 1e-10 and k < 100:
     print("Sum lambdas:", s)
     loss =  1/2 * (s - target_lambda)**2
     print("Loss:", loss)
+
+    sim.clear_grads()
+    sim.lambdas.grad[0] = 1
+    sim.lambdas.grad[1] = 1
+    sim.lambdas.grad[2] = 1
+    sim.lambdas.grad[3] = 1
+    sim.compute_lambdas_backward(1)
+    sim.gravity_backward(1)
+
+    
     print("Grad lambda to particle 0 intermediate:", sim.positions_intermediate.grad[1,0][0], sim.positions_intermediate.grad[1,0][1])
     print("Grad lambda to particle 0 position initial:", sim.positions.grad[0,0][0], sim.positions.grad[0,0][1])
 

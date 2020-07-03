@@ -7,11 +7,11 @@
 #### Junly 2nd
 - Differentiable simulatioon
     - Finished deriving and implementing a draft of backprop for core solver iteration, need to test and debug
-    - If core iteration is correct then full end-to-end should be finished soon
-    - Next is to include data structure to hold intermidiate values for multi-iteration solver
-
-
-
+        - Preliminary tests seem ok, do gradient descent test tomorrow
+    - Next steps
+        - Include data structure to handle multi-step simulation
+        - Include data structure to handle multi-iteration core solver
+        
 
 #### July 1st
 - Differentiable simulation

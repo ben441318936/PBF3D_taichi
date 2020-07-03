@@ -7,7 +7,7 @@ class HandGradSim:
     def __init__(self):
         self.dim = 2
         self.delta_t = 1.0 / 20.0
-        self.max_timesteps = 20
+        self.max_timesteps = 2
         self.num_particles = 5
 
         self.boundary = np.array([100.0,100.0])
@@ -58,7 +58,6 @@ class HandGradSim:
         self.position_deltas = ti.Vector(self.dim, dt=ti.f32)
 
         self.SGS_to_grad_j = ti.Vector(self.dim, ti.f32)
-
         self.local_grad_j = ti.Vector(self.dim, ti.f32)
 
         self.loss = ti.var(ti.f32)
@@ -93,16 +92,17 @@ class HandGradSim:
         self.positions_intermediate.fill(0.0)
         self.velocities.fill(0.0)
         self.loss.fill(0.0)
-        self.SGS_to_grad_j.fill(0.0)
-        # Temporary values here
-        self.target[None][0] = 30
-        self.target[None][1] = 15
+        # Temporary hardcoded values here
+        self.target[None][0] = 10.6
+        self.target[None][1] = 10.6
 
     def clear_grads(self):
         self.positions.grad.fill(0.0)
         self.positions_intermediate.grad.fill(0.0)
         self.velocities.grad.fill(0.0)
         self.lambdas.grad.fill(0.0)
+        self.SGS_to_grad_j.fill(0.0)
+        self.local_grad_j.fill(0.0)
         self.loss.grad.fill(0.0)
 
     @ti.kernel
@@ -417,7 +417,7 @@ class HandGradSim:
     def apply_position_deltas_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
             self.positions_intermediate.grad[frame,i] = self.positions.grad[frame,i]
-            self.position_deltas.grad[frame,i] = self.positions.grad[frame,i]
+            self.position_deltas.grad[i] = self.positions.grad[frame,i]
                     
     @ti.kernel
     def compute_loss_forward(self):
