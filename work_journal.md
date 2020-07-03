@@ -1,10 +1,22 @@
 ## Work journal
 
 
-### Week of June 29th - July 2nd, 2020
+### Week of June 29th - July 3rd, 2020
 
 
-#### Junly 2nd
+#### July 3rd
+
+- Differentiable simulation
+    - Finished most of gradients
+        - Only one Jacobi iteration
+            - Forward sim is slightly not stable because of this
+            - Need to added the multi-iteration in
+        - Need to add in the bound check after applying delta
+    - Next check end-to-end optimiation on the full simulation
+    - Next implement suction and its gradients
+
+
+#### July 2nd
 - Differentiable simulatioon
     - Finished deriving and implementing a draft of backprop for core solver iteration, need to test and debug
         - Preliminary tests seem ok, do gradient descent test tomorrow

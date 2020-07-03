@@ -256,9 +256,9 @@ class DiffFluidSim2D:
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
             if p[i] <= bmin:
-                p[i] = bmin + self.epsilon
+                p[i] = bmin + self.epsilon * ti.random()
             elif bmax[i] <= p[i]:
-                p[i] = bmax[i] - self.epsilon
+                p[i] = bmax[i] - self.epsilon * ti.random()
         return p
 
     @ti.func
@@ -325,7 +325,7 @@ class DiffFluidSim2D:
                 vel += g * self.time_delta
                 pos += vel * self.time_delta
                 #self.positions[frame,i] = self.confine_position_to_boundary(pos)
-                #pos = self.confine_position_to_board(self.positions[frame-1,i], pos, 0)
+                pos = self.confine_position_to_board(self.positions[frame-1,i], pos, 0)
                 self.total_pos_delta[i] = self.confine_position_to_boundary(pos) - self.positions[frame-1,i]
 
     @ti.kernel
@@ -334,7 +334,7 @@ class DiffFluidSim2D:
             if self.particle_active[frame,i] == 1:
                 pos = self.positions[frame-1,i] + self.total_pos_delta[i]
                 #self.positions[frame,i] = self.confine_position_to_boundary(pos)
-                #pos = self.confine_position_to_board(self.positions[frame-1,i], pos, 0)
+                pos = self.confine_position_to_board(self.positions[frame-1,i], pos, 0)
                 self.total_pos_delta[i] = self.confine_position_to_boundary(pos) - self.positions[frame-1,i]
 
     @ti.kernel
@@ -486,29 +486,29 @@ class DiffFluidSim2D:
         self.num_active[frame] = self.num_active[frame-1]
         self.copy_particle_active(frame)
 
-        # self.apply_suction(frame)
+        self.apply_suction(frame)
         
         self.apply_gravity_within_boundary(frame)
 
-        # self.grid_num_particles.fill(0)
-        # self.particle_neighbors.fill(-1)
-        # self.grid2particles.fill(0)
-        # self.update_grid(frame)
+        self.grid_num_particles.fill(0)
+        self.particle_neighbors.fill(-1)
+        self.grid2particles.fill(0)
+        self.update_grid(frame)
 
-        # self.particle_num_neighbors.fill(0)
-        # self.find_particle_neighbors(frame)
+        self.particle_num_neighbors.fill(0)
+        self.find_particle_neighbors(frame)
 
-        # for _ in range(self.pbf_num_iters):
+        for _ in range(self.pbf_num_iters):
 
-        #     self.compute_lambdas(frame)
-        #     self.compute_position_deltas(frame)
-        #     self.apply_position_deltas(frame)
+            self.compute_lambdas(frame)
+            self.compute_position_deltas(frame)
+            self.apply_position_deltas(frame)
         
         self.confine_to_boundary(frame)
         self.apply_total_pos_delta(frame)
 
         self.update_velocities(frame)
-        # self.apply_XSPH_viscosity(frame)
+        self.apply_XSPH_viscosity(frame)
 
 
     def render(self,frame):

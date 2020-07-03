@@ -2,15 +2,25 @@ import taichi as ti
 import numpy as np
 import math
 
+ti.init(arch=ti.gpu)
+
 @ti.data_oriented
 class HandGradSim:
     def __init__(self):
+        self.gui = ti.GUI("PBF2D", res=(400,400))
+        self.bg_color = 0x112f41
+        self.particle_color = 0x068587
+        self.boundary_color = 0xebaca2
+
+        self.render_res = (400,400)
+        self.render_scaling = 10
+
         self.dim = 2
         self.delta_t = 1.0 / 20.0
-        self.max_timesteps = 2
-        self.num_particles = 5
+        self.max_timesteps = 1000
+        self.num_particles = 500
 
-        self.boundary = np.array([100.0,100.0])
+        self.boundary = np.array([40.0,40.0])
 
         self.cell_size = 2.51
         self.cell_recpr = 1.0 / self.cell_size
@@ -46,15 +56,17 @@ class HandGradSim:
         self.target = ti.Vector(self.dim, ti.f32)
 
         self.positions = ti.Vector(self.dim, ti.f32)
-        self.positions_intermediate = ti.Vector(self.dim, ti.f32)
+        self.positions_after_grav = ti.Vector(self.dim, ti.f32)
+        self.positions_iter = ti.Vector(self.dim, ti.f32)
+
         self.velocities = ti.Vector(self.dim, ti.f32)
 
         self.grid_num_particles = ti.var(ti.i32)
         self.grid2particles = ti.var(ti.i32)
         self.particle_num_neighbors = ti.var(ti.i32)
         self.particle_neighbors = ti.var(ti.i32)
+        
         self.lambdas = ti.var(ti.f32)
-
         self.position_deltas = ti.Vector(self.dim, dt=ti.f32)
 
         self.SGS_to_grad_j = ti.Vector(self.dim, ti.f32)
@@ -66,21 +78,23 @@ class HandGradSim:
 
     def place_vars(self):
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions, self.velocities)
-        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions_intermediate)
+        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions_after_grav)
+        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions_iter)
+
         ti.root.place(self.loss)
         ti.root.place(self.target)
 
-        ti.root.dense(ti.i, self.num_particles).place(self.position_deltas)
+        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.position_deltas)
 
-        grid_snode = ti.root.dense(ti.ij, self.grid_size)
+        grid_snode = ti.root.dense(ti.i, self.max_timesteps).dense(ti.jk, self.grid_size)
         grid_snode.place(self.grid_num_particles)
-        grid_snode.dense(ti.k, self.max_num_particles_per_cell).place(self.grid2particles)
+        grid_snode.dense(ti.l, self.max_num_particles_per_cell).place(self.grid2particles)
 
-        ti.root.dense(ti.i, self.num_particles).place(self.lambdas)
+        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.lambdas)
 
-        nb_node = ti.root.dense(ti.i, self.num_particles)
+        nb_node = ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles)
         nb_node.place(self.particle_num_neighbors)
-        nb_node.dense(ti.j, self.max_num_neighbors).place(self.particle_neighbors)
+        nb_node.dense(ti.k, self.max_num_neighbors).place(self.particle_neighbors)
 
         ti.root.dense(ti.i, self.num_particles).dense(ti.j, self.max_num_neighbors).place(self.SGS_to_grad_j)
         ti.root.dense(ti.i, self.num_particles).dense(ti.j, self.max_num_neighbors).place(self.local_grad_j)
@@ -89,21 +103,29 @@ class HandGradSim:
 
     def initialize(self):
         self.positions.fill(0.0)
-        self.positions_intermediate.fill(0.0)
+        self.positions_after_grav.fill(0.0)
+        self.positions_iter.fill(0.0)
         self.velocities.fill(0.0)
+        self.lambdas.fill(0.0)
+        self.position_deltas.fill(0.0)
         self.loss.fill(0.0)
+        self.clear_neighbor_info()
         # Temporary hardcoded values here
-        self.target[None][0] = 10.6
-        self.target[None][1] = 10.6
+        self.target[None][0] = 11
+        self.target[None][1] = 11
 
-    def clear_grads(self):
+    def clear_global_grads(self):
         self.positions.grad.fill(0.0)
-        self.positions_intermediate.grad.fill(0.0)
+        self.positions_after_grav.grad.fill(0.0)
+        self.positions_iter.grad.fill(0.0)
         self.velocities.grad.fill(0.0)
         self.lambdas.grad.fill(0.0)
+        self.position_deltas.grad.fill(0.0)
+        self.loss.grad.fill(0.0)
+
+    def clear_local_grads(self):
         self.SGS_to_grad_j.fill(0.0)
         self.local_grad_j.fill(0.0)
-        self.loss.grad.fill(0.0)
 
     @ti.kernel
     def place_particle(self, frame: ti.i32, i: ti.i32, p: ti.ext_arr(), v: ti.ext_arr()):
@@ -111,6 +133,34 @@ class HandGradSim:
             self.positions[frame, i][k] = p[k]
             self.velocities[frame, i][k] = v[k]
 
+    @ti.func
+    def confine_position_to_boundary_forward(self, p):
+        # Global boundaries
+        bmin = self.particle_radius
+        bmax = ti.Vector([self.boundary[0], self.boundary[1]]) - self.particle_radius
+
+        for i in ti.static(range(self.dim)):
+            # Use randomness to prevent particles from sticking into each other after clamping
+            if p[i] <= bmin:
+                p[i] = bmin + self.epsilon * ti.random()
+            elif bmax[i] <= p[i]:
+                p[i] = bmax[i] - self.epsilon * ti.random()
+        return p
+
+    @ti.func
+    def confine_position_to_boundary_backward(self, p):
+        # Global boundaries
+        bmin = self.particle_radius
+        bmax = ti.Vector([self.boundary[0], self.boundary[1]]) - self.particle_radius
+
+        jacobian = ti.Matrix([[1.0, 0.0], [0.0, 1.0]])
+
+        for i in ti.static(range(self.dim)):
+            if p[i] <= bmin or p[i] >= bmax[i]:
+                jacobian[i,i] = 0
+
+        return jacobian
+            
     @ti.kernel
     def gravity_forward(self, frame: ti.i32):
         for i in range(self.num_particles):
@@ -118,13 +168,19 @@ class HandGradSim:
             pos, vel = self.positions[frame-1,i], self.velocities[frame-1,i]
             vel += g * self.delta_t
             pos += vel * self.delta_t
-            self.positions_intermediate[frame,i] = pos
+            self.positions_after_grav[frame,i] = pos
+            # The position info going into the solver iterations is the confined version
+            self.positions_iter[frame,i] = self.confine_position_to_boundary_forward(pos)
 
     @ti.kernel
     def gravity_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            self.positions.grad[frame-1,i] += self.positions_intermediate.grad[frame,i] 
-            self.velocities.grad[frame-1,i] += self.positions_intermediate.grad[frame,i] * self.delta_t
+            # The jacobian here reflects how the position_after_grav confined contributed to positions_after_grav
+            pos_after_grav = self.positions_after_grav[frame,i]
+            jacobian = self.confine_position_to_boundary_backward(pos_after_grav)
+            # positions and velocities contributes to positions_after_grav, so it needs component-wise gating
+            self.positions.grad[frame-1,i] += jacobian @ self.positions_iter.grad[frame,i] 
+            self.velocities.grad[frame-1,i] += jacobian @ self.positions_iter.grad[frame,i] * self.delta_t
 
     @ti.kernel
     def update_velocity_froward(self, frame: ti.i32):
@@ -153,29 +209,29 @@ class HandGradSim:
     @ti.kernel
     def update_grid(self, frame: ti.i32):
         for i in range(self.num_particles):
-            cell = self.get_cell(self.positions_intermediate[frame,i])
+            cell = self.get_cell(self.positions_iter[frame,i])
             # ti.Vector doesn't seem to support unpacking yet
             # but we can directly use int Vectors as indices
-            offs = self.grid_num_particles[cell].atomic_add(1)
-            self.grid2particles[cell, offs] = i
+            offs = self.grid_num_particles[frame, cell].atomic_add(1)
+            self.grid2particles[frame, cell, offs] = i
 
     @ti.kernel
     def find_particle_neighbors(self, frame: ti.i32):
         for i in range(self.num_particles):
-            pos_i = self.positions_intermediate[frame,i]
+            pos_i = self.positions_iter[frame,i]
             cell = self.get_cell(pos_i)
             nb_i = 0
             for offs in ti.static(ti.grouped(ti.ndrange((-1, 2), (-1, 2)))):
                 cell_to_check = cell + offs
                 if self.is_in_grid(cell_to_check):
-                    for j in range(self.grid_num_particles[cell_to_check]):
-                        p_j = self.grid2particles[cell_to_check, j]
+                    for j in range(self.grid_num_particles[frame, cell_to_check]):
+                        p_j = self.grid2particles[frame, cell_to_check, j]
                         if nb_i < self.max_num_neighbors and p_j != i:
-                            dist = (pos_i - self.positions_intermediate[frame,p_j]).norm()
+                            dist = (pos_i - self.positions_iter[frame,p_j]).norm()
                             if (dist < self.neighbor_radius):
-                                self.particle_neighbors[i, nb_i] = p_j
+                                self.particle_neighbors[frame, i, nb_i] = p_j
                                 nb_i += 1
-            self.particle_num_neighbors[i] = nb_i
+            self.particle_num_neighbors[frame, i] = nb_i
 
     # Output is a 2-vector
     @ti.func
@@ -235,16 +291,16 @@ class HandGradSim:
     def compute_lambdas_forward(self, frame: ti.i32):
         # Eq (8) ~ (11)
         for i in range(self.num_particles):
-            pos_i = self.positions_intermediate[frame,i]
+            pos_i = self.positions_iter[frame,i]
 
             grad_i = ti.Vector([0.0, 0.0])
             sum_gradient_sqr = 0.0
             density_constraint = 0.0
 
-            for j in range(self.particle_num_neighbors[i]):
-                p_j = self.particle_neighbors[i, j]
+            for j in range(self.particle_num_neighbors[frame, i]):
+                p_j = self.particle_neighbors[frame, i, j]
                 if p_j >= 0:
-                    pos_ji = pos_i - self.positions_intermediate[frame,p_j]
+                    pos_ji = pos_i - self.positions_iter[frame,p_j]
                     grad_j = self.spiky_gradient_forward(pos_ji, self.h)
                     grad_i += grad_j
                     sum_gradient_sqr += grad_j.dot(grad_j)
@@ -255,26 +311,25 @@ class HandGradSim:
             density_constraint = (self.mass * density_constraint / self.rho0) - 1.0
 
             sum_gradient_sqr += grad_i.dot(grad_i)
-            self.lambdas[i] = (-density_constraint) / (sum_gradient_sqr +
+            self.lambdas[frame, i] = (-density_constraint) / (sum_gradient_sqr +
                                                     self.lambda_epsilon)
-
 
     @ti.kernel
     def compute_lambdas_backward(self, frame: ti.i32):
         # Gradient from lambda(i)
         # Here I am recomputing intermidiate values
         for i in range(self.num_particles):
-            pos_i = self.positions_intermediate[frame,i]
+            pos_i = self.positions_iter[frame,i]
             grad_i = ti.Vector([0.0, 0.0])
             sum_gradient_sqr = 0.0
             density_constraint = 0.0
 
-            grad_to_lambda_i = self.lambdas.grad[i]
+            grad_to_lambda_i = self.lambdas.grad[frame,i]
 
-            for j in range(self.particle_num_neighbors[i]):
-                p_j = self.particle_neighbors[i, j]
+            for j in range(self.particle_num_neighbors[frame, i]):
+                p_j = self.particle_neighbors[frame, i, j]
                 if p_j >= 0:
-                    pos_ji = pos_i - self.positions_intermediate[frame,p_j]
+                    pos_ji = pos_i - self.positions_iter[frame,p_j]
                     grad_j = self.spiky_gradient_forward(pos_ji, self.h)
                     # Accumulate grad_j during recomputing
                     self.SGS_to_grad_j[i,j] = 2 * grad_j
@@ -296,35 +351,35 @@ class HandGradSim:
 
             constraint_to_val = self.rho0 / self.mass
 
-            for j in range(self.particle_num_neighbors[i]):
-                p_j = self.particle_neighbors[i, j]
+            for j in range(self.particle_num_neighbors[frame, i]):
+                p_j = self.particle_neighbors[frame, i, j]
                 if p_j >= 0:
-                    pos_ji = pos_i - self.positions_intermediate[frame,p_j]
+                    pos_ji = pos_i - self.positions_iter[frame,p_j]
 
                     # SGS path the spiky gradients
                     self.SGS_to_grad_j[i,j] += 2 * grad_i
                     SGS_to_r_ji = self.spiky_gradient_backward(pos_ji, self.h) @ self.SGS_to_grad_j[i,j]
                     # For each neighbor pos_j, the contribution comes from one spiky grad computation
-                    self.positions_intermediate.grad[frame,p_j] += -1 * SGS_to_r_ji * lambda_to_SGS * grad_to_lambda_i
+                    self.positions_iter.grad[frame,p_j] += -1 * SGS_to_r_ji * lambda_to_SGS * grad_to_lambda_i
                     # For every spiky gradient computation, there is a contribution to pos_i
                     SGS_to_pos_i += SGS_to_r_ji
 
                     # Density constraint path with poly6 values
                     constraint_to_r_ji = self.poly6_value_backward(pos_ji.norm()**2, self.h) * ti.Vector([1.0, 1.0]) * constraint_to_val
                     # For each neighbor pos_j, the constribution comes from one poly6 val computation
-                    self.positions_intermediate.grad[frame,p_j] += -1 * constraint_to_r_ji * lambda_to_constraint * grad_to_lambda_i
+                    self.positions_iter.grad[frame,p_j] += -1 * constraint_to_r_ji * lambda_to_constraint * grad_to_lambda_i
                     # For every poly6 value computation, there is a constribution to pos_i
                     constraint_to_pos_i += constraint_to_r_ji
 
             # Sum the contribution from the SGS and constraint paths
-            self.positions_intermediate.grad[frame,i] += (SGS_to_pos_i * lambda_to_SGS \
+            self.positions_iter.grad[frame,i] += (SGS_to_pos_i * lambda_to_SGS \
                                                          + constraint_to_pos_i * lambda_to_constraint) * \
                                                              grad_to_lambda_i
 
     @ti.func
     def compute_scorr_forward(self, pos_ji):
         # Eq (13)
-        x = self.poly6_value_forward(pos_ji.norm()**2, self.h) / self.poly6_value_forward(self.corr_deltaQ_coeff * self.h, self.h)
+        x = self.poly6_value_forward(pos_ji.norm()**2, self.h) / self.poly6_value_forward((self.corr_deltaQ_coeff*self.h)**2, self.h)
         # pow(x, 4)
         x = x * x
         x = x * x
@@ -333,7 +388,7 @@ class HandGradSim:
     @ti.func
     def compute_scorr_backward(self, pos_ji):
         poly6_ji = self.poly6_value_forward(pos_ji.norm()**2, self.h)
-        poly6_delta_Q = self.poly6_value_forward(self.corr_deltaQ_coeff * self.h, self.h)
+        poly6_delta_Q = self.poly6_value_forward((self.corr_deltaQ_coeff*self.h)**2, self.h)
         poly6_grad = self.poly6_value_backward(pos_ji.norm()**2, self.h) * ti.Vector([1.0, 1.0])
 
         grad = -4 * self.corrK * (poly6_ji / poly6_delta_Q)**3 / poly6_delta_Q * poly6_grad
@@ -343,37 +398,37 @@ class HandGradSim:
     def compute_position_deltas_forward(self, frame: ti.i32):
         # Eq(12), (14)
         for i in range(self.num_particles):
-            pos_i = self.positions_intermediate[frame,i]
-            lambda_i = self.lambdas[i]
+            pos_i = self.positions_iter[frame,i]
+            lambda_i = self.lambdas[frame,i]
 
             pos_delta_i = ti.Vector([0.0, 0.0])
-            for j in range(self.particle_num_neighbors[i]):
-                p_j = self.particle_neighbors[i, j]
+            for j in range(self.particle_num_neighbors[frame,i]):
+                p_j = self.particle_neighbors[frame,i, j]
                 # TODO: does taichi supports break?
                 if p_j >= 0:
-                    lambda_j = self.lambdas[p_j]
-                    pos_ji = pos_i - self.positions_intermediate[frame,p_j]
+                    lambda_j = self.lambdas[frame,p_j]
+                    pos_ji = pos_i - self.positions_iter[frame,p_j]
                     scorr_ij = self.compute_scorr_forward(pos_ji)
                     pos_delta_i += (lambda_i + lambda_j + scorr_ij) * \
                         self.spiky_gradient_forward(pos_ji, self.h)
 
             pos_delta_i /= self.rho0
-            self.position_deltas[i] = pos_delta_i
+            self.position_deltas[frame,i] = pos_delta_i
 
     @ti.kernel
     def compute_position_deltas_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            pos_i = self.positions_intermediate[frame,i]
-            lambda_i = self.lambdas[i]
+            pos_i = self.positions_iter[frame,i]
+            lambda_i = self.lambdas[frame,i]
 
             grad_to_delta_i = self.positions.grad[frame,i]
 
-            for j in range(self.particle_num_neighbors[i]):
-                p_j = self.particle_neighbors[i, j]
+            for j in range(self.particle_num_neighbors[frame,i]):
+                p_j = self.particle_neighbors[frame, i, j]
                 # TODO: does taichi supports break?
                 if p_j >= 0:
-                    pos_ji = pos_i - self.positions_intermediate[frame,p_j]
-                    lambda_j = self.lambdas[p_j]
+                    pos_ji = pos_i - self.positions_iter[frame,p_j]
+                    lambda_j = self.lambdas[frame, p_j]
 
                     grad_j =  self.spiky_gradient_forward(pos_ji, self.h)
                     scorr_ij = self.compute_scorr_forward(pos_ji)
@@ -385,49 +440,51 @@ class HandGradSim:
                     y_ji = (lambda_i + lambda_j + scorr_ij) / self.rho0
                     # Each neighbor is used to compute spiky gradient once
                     # and pos_j is negative going into spiky gradient
-                    self.positions_intermediate.grad[frame,p_j] += -1 * y_ji * self.spiky_gradient_backward(pos_ji, self.h) @ \
+                    self.positions_iter.grad[frame,p_j] += -1 * y_ji * self.spiky_gradient_backward(pos_ji, self.h) @ \
                                                                     grad_to_delta_i
                     # Particle i is used to compute for every neighbor
-                    self.positions_intermediate.grad[frame,i] += y_ji * self.spiky_gradient_backward(pos_ji, self.h) @ \
+                    self.positions_iter.grad[frame,i] += y_ji * self.spiky_gradient_backward(pos_ji, self.h) @ \
                                                                     grad_to_delta_i
 
                     # Compute from delta to lambdas
                     # Each neighbor's lambda is added once
-                    self.lambdas.grad[p_j] += 1 / self.rho0 * grad_j.dot(grad_to_delta_i)
+                    self.lambdas.grad[frame,p_j] += 1 / self.rho0 * grad_j.dot(grad_to_delta_i)
                     # Particle i gets contribution for every neighbor
-                    self.lambdas.grad[i] += 1 / self.rho0 * grad_j .dot(grad_to_delta_i)
+                    self.lambdas.grad[frame,i] += 1 / self.rho0 * grad_j.dot(grad_to_delta_i)
 
                     # Compute from delta to pos_j through scorr path
                     # This is a scalar
                     scorr_to_p_ji = self.compute_scorr_backward(pos_ji)
                     # This is a 2-vector
-                    grad_to_scorr = 1 / self.rho0 * grad_j .dot(grad_to_delta_i)
+                    grad_to_scorr = 1 / self.rho0 * grad_j.dot(grad_to_delta_i)
                     # Each neighbor is used to compute scorr once
                     # and pos_j is negative going into scorr
-                    self.positions_intermediate.grad[frame,p_j] += - scorr_to_p_ji * grad_to_scorr
+                    self.positions_iter.grad[frame,p_j] += - scorr_to_p_ji * grad_to_scorr
                     # Particle i is used to compute for every neighbor
-                    self.positions_intermediate.grad[frame,i] += scorr_to_p_ji * grad_to_scorr
+                    self.positions_iter.grad[frame,i] += scorr_to_p_ji * grad_to_scorr
 
     @ti.kernel
     def apply_position_deltas_forward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            self.positions[frame,i] = self.positions_intermediate[frame,i] + self.position_deltas[i]
+            self.positions[frame,i] = self.positions_iter[frame,i] + self.position_deltas[frame,i]
     
     @ti.kernel
     def apply_position_deltas_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            self.positions_intermediate.grad[frame,i] = self.positions.grad[frame,i]
-            self.position_deltas.grad[i] = self.positions.grad[frame,i]
+            self.positions_iter.grad[frame,i] = self.positions.grad[frame,i]
+            self.position_deltas.grad[frame,i] = self.positions.grad[frame,i]
                     
     @ti.kernel
     def compute_loss_forward(self):
-        for k in ti.static(range(self.dim)):
-            self.loss[None] += 1/2 * (self.positions[self.max_timesteps-1,0][k] - self.target[None][k])**2
+        for i in range(self.num_particles):
+            for k in ti.static(range(self.dim)):
+                self.loss[None] += 1/2 * (self.positions[self.max_timesteps-1,i][k] - self.target[None][k])**2
 
     @ti.kernel
     def compute_loss_backward(self):
-        for k in ti.static(range(self.dim)):
-            self.positions.grad[self.max_timesteps-1,0][k] += self.positions[self.max_timesteps-1,0][k] - self.target[None][k]
+        for i in range(self.num_particles):
+            for k in ti.static(range(self.dim)):
+                self.positions.grad[self.max_timesteps-1,i][k] += self.positions[self.max_timesteps-1,i][k] - self.target[None][k]
 
     def clear_neighbor_info(self):
         self.grid_num_particles.fill(0)
@@ -439,24 +496,56 @@ class HandGradSim:
     def step_forward(self, frame):
         self.gravity_forward(frame)
 
-        # self.clear_neighbor_info()
-        # self.update_grid(frame)
-        # self.find_particle_neighbors(frame)
-        # self.compute_lambdas_forward(frame)
+        self.update_grid(frame)
+        self.find_particle_neighbors(frame)
+        self.compute_lambdas_forward(frame)
+        self.compute_position_deltas_forward(frame)
+        self.apply_position_deltas_forward(frame)
 
         self.update_velocity_froward(frame)
 
     def backward_step(self, frame):
         self.update_velocity_backward(frame)
+
+        self.apply_position_deltas_backward(frame)
+        self.compute_position_deltas_backward(frame)
+        self.compute_lambdas_backward(frame)
+
         self.gravity_backward(frame)
     
     def forward(self):
+        self.clear_neighbor_info()
+        self.render(0)
         for i in range(1,self.max_timesteps):
             self.step_forward(i)
+            self.render(i)
+        self.loss[None] = 0
         self.compute_loss_forward()
 
     def backward(self):
-        self.clear_grads()
+        self.clear_global_grads()
         self.compute_loss_backward()
         for i in reversed(range(1, self.max_timesteps)):
+            self.clear_local_grads()
             self.backward_step(i)
+
+    def render(self,frame):
+        if self.gui is None and self.gui.running:
+            print("Can't render without running GUI.")
+            return
+        canvas = self.gui.canvas
+        canvas.clear(self.bg_color)
+        pos_np = self.positions.to_numpy()[frame,:,:]
+
+        # Particles
+        for i in range(pos_np.shape[0]):
+            for j in range(self.dim):
+                pos_np[i,j] *= self.render_scaling / self.render_res[j]
+            self.gui.circle(pos_np[i,[0,1]], radius=self.particle_radius*self.render_scaling, color=self.particle_color)
+
+        # Boundary rect
+        canvas.rect(ti.vec(0, 0), 
+                    ti.vec(1.0,1.0)
+                    ).radius(1.5).color(self.boundary_color).close().finish()
+        
+        self.gui.show()
