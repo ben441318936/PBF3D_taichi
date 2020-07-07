@@ -4,6 +4,11 @@
 ### Week of July 6th - July 6th, 2020
 
 
+#### July 7th
+- Differentiable simulation
+    - Added in particle emission
+
+
 #### July 6th
 - Differentiable simulation
     - Fixed a mistake in propagating poly6 gradients

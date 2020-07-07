@@ -6,6 +6,7 @@
 *.pyc
 *.json
 *.jpg
+*.mtl
 
 !new.png
 !simple_comp_graph.jpg

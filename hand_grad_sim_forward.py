@@ -8,7 +8,7 @@ initial_vel0 = np.array([10.0, 0.0])
 
 sim.initialize()
 
-for i in range(sim.num_particles):
-    sim.place_particle(0, i, np.array([i/4, 1]), initial_vel0)
+# for i in range(sim.num_particles):
+#     sim.place_particle(0, i, np.array([i/4, 1]), initial_vel0)
 
 sim.forward()
