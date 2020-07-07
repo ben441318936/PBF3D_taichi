@@ -1,6 +1,17 @@
 ## Work journal
 
 
+### Week of July 6th - July 6th, 2020
+
+
+#### July 6th
+- Differentiable simulation
+    - Fixed a mistake in propagating poly6 gradients
+    - Put in clipping to ensure Spiky grad backward does not blow up
+    - Put in clipping to ensure propagation through the lambdas path does not blow up
+    - Finished multi-iteration solver and the backprop through it
+
+
 ### Week of June 29th - July 3rd, 2020
 
 

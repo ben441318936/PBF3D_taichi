@@ -4,16 +4,16 @@ import numpy as np
 sim = HandGradSim()
 
 initial_pos0 = np.array([10.0, 10.0])
-initial_vel0 = np.array([10.0, 0.0])
+initial_vel0 = np.array([1.0, 0.0])
 
 initial_pos1 = np.array([20.0, 10.0])
-initial_vel1 = np.array([10.0, 0.0])
+initial_vel1 = np.array([1.0, 0.0])
 
-initial_pos2 = np.array([10.1, 10.0])
-initial_vel2 = np.array([10.0, 0.0])
+initial_pos2 = np.array([10.5, 10.0])
+initial_vel2 = np.array([1.0, 0.0])
 
-initial_pos3 = np.array([9.8, 10.0])
-initial_vel3 = np.array([10.0, 0.0])
+initial_pos3 = np.array([8, 10.0])
+initial_vel3 = np.array([1.0, 0.0])
 
 best_loss = 100
 best_iter = 0
@@ -21,7 +21,7 @@ best_iter = 0
 loss = 100
 k = 0
 
-lr = 1e-2
+lr = 1e-1
 
 while loss > 1e-7 and k < 1000:
     print("GD iter {}".format(k))
@@ -34,14 +34,32 @@ while loss > 1e-7 and k < 1000:
 
     sim.forward()
 
-    sim.compute_loss_forward()
     print("loss:", sim.loss[None])
 
-    print("Final pos:", sim.positions[2,0][0], sim.positions[2,0][1])
+    for i in range(sim.num_particles):
+        print("Final pos {}:".format(i), sim.positions[9,i][0], sim.positions[9,i][1])
 
     sim.backward()
 
     grads = sim.positions.grad.to_numpy()
+
+    if k == 96:
+        print("Dumping deltas")
+        deltas = sim.position_deltas.to_numpy()
+        print(deltas)
+
+        print("Dumping gradients")
+        print("Pos grad")
+        print(grads)
+
+        print("Pos iter grad")
+        grads_iter = sim.positions_iter.grad.to_numpy()
+        print(grads_iter)
+        
+        print("Pos delta grad")
+        grads_delta = sim.position_deltas.grad.to_numpy()
+        print(grads_delta)
+
     grads = np.clip(grads, -1e2, 1e2)
 
     initial_pos0 -= lr * grads[0,0]
