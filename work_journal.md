@@ -1,12 +1,33 @@
 ## Work journal
 
 
-### Week of July 6th - July 6th, 2020
+### Week of July 6th - July 8th, 2020
+
+
+#### July 8th
+- Differentiable simulation
+    - Implmented proposed min distance loss and backpropagation to suction tool positions
+    - Ran some simple tests
+        - A trivial case of a few particles
+            - The tool will converge to the center of the particles, which is what we expect since we want to minimize the distance between the tool and the particle in order to suction them
+            - However the region in the center is empty, so the tool didn't do any suction
+            - This is not that big of a problem because in a real case, the center of a group of particles should not be empty
+        - A trajectory optimizatin test with 100 particles in 100 timesteps
+            - Goal is to find optimal tool positions for all timesteps to remove as much particles as possible
+            - We expect the tool to go to where the particles are emitted, to suction the particles as soon as they come out
+            - Results show that the tool does tend to go to the emission point, but unintuitively, it doesn't stay there to suction all of the particles
+    - Possibly new loss that penalizes all timeframes
+        - Intuitively we want to suction all particles as fast as possible, so it makes sense to penalize a particle be existing
+        - A trajectory optimizatin test with 100 particles in 100 timesteps
+            - Result show that the tool is being driven towards the center of the fluid
+            - Best results at around 200 iterations, in later iterations of gradient descent the trajectory gets worse
+            - Even at the best iteration, there is a lot of spasmic movement, and has trouble going into the fluid
 
 
 #### July 7th
 - Differentiable simulation
-    - Added in particle emission
+    - Added in particle emission and particle state control for gradient computation
+    - Formulated particle suction through deleteion as an optimization problem
 
 
 #### July 6th

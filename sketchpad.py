@@ -1,5 +1,13 @@
-from hand_grad_sim import HandGradSim
+import pickle
+import numpy as np
 
-sim = HandGradSim()
+iter_states_path = "./states/iter_states.obj"
+with open(iter_states_path, "rb") as f:
+    iter_states = pickle.load(f)
 
-sim.test_spiky_grad_backward()
+best_states_path = "./states/best_states.obj"
+with open(best_states_path, "rb") as f:
+    best_states = pickle.load(f)
+
+
+print(len(iter_states))
