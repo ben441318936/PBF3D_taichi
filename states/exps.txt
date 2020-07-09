@@ -1,0 +1,9 @@
+tool is allowed to act at t=1
+no suffix: penalize min distance, with coupling grads, lr=1, global gate=1
+new: penalize every frame, with coupling grads, lr=1, global gate=1
+new 1: penalize every frame, without coupling grads, lr=10, global gate=10, loss = 0.01
+new 2: penalize every frame, with coupling grads, lr=10, global gate=10, coupling gate=1, loss = 6.53
+new 3: penalize every frame, with coupling grads, lr=10, global gate=10, coupling gate=0.1, loss = 0.36
+
+the scene starts with partciles already emitted
+1: penalize every frame, without coupling grads, lr=10, global gate=10, loss = 

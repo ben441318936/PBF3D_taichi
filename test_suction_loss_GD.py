@@ -12,6 +12,14 @@ board_states = np.zeros((sim.max_timesteps,sim.dim))
 for i in range(sim.max_timesteps):
     board_states[i,:] = np.array([10.0, 20.0])
 
+init_pos_path = "./states/init_pos.obj"
+with open(init_pos_path, "rb") as f:
+    init_pos = pickle.load(f)
+
+init_vel_path = "./states/init_vel.obj"
+with open(init_vel_path, "rb") as f:
+    init_vel = pickle.load(f)  
+
 
 best_loss = 1e5
 best_iter = 0
@@ -19,12 +27,14 @@ best_iter = 0
 loss = best_loss
 k = 0
 
-lr = 1
+lr = 1e1
 
-while loss > 1e-7 and k < 1001:
+while loss > 1e-2 and k < 101:
     print("GD iter {}".format(k))
 
     sim.initialize(board_states)
+
+    sim.emit_particles(100, 0, init_pos, init_vel)
 
     sim.forward()
 
@@ -59,11 +69,11 @@ while loss > 1e-7 and k < 1001:
 
 print("Best loss is {} at iter {}".format(best_loss, best_iter))
 
-iter_states_path = "./states/iter_states_new.obj"
+iter_states_path = "./states/set2/iter_states_1.obj"
 with open(iter_states_path, "w+b") as f:
     pickle.dump(iter_states, f)
 
-best_states_path = "./states/best_states_new.obj"
+best_states_path = "./states/set2/best_states_1.obj"
 with open(best_states_path, "w+b") as f:
     pickle.dump(best_states, f)
 
