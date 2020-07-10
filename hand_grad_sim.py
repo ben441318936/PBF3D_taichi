@@ -674,7 +674,7 @@ class HandGradSim:
                     self.distance_matrix[f,i] = 0
                     # min_dist_frame = f
                 elif self.particle_active[f,i] == 1:
-                    self.distance_matrix[f,i] = (self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2))**2 + (self.positions[f,i][1] - self.board_states[f][1])**2
+                    self.distance_matrix[f,i] = (self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2))**2 + 5*(self.positions[f,i][1] - self.board_states[f][1])**2
                     # if dist < min_dist:
                     #     min_dist = dist
                     #     min_dist_frame = f
@@ -715,7 +715,7 @@ class HandGradSim:
                     if dist > 0:
                         # f = self.min_dist_frame[i]
                         a = ti.Vector([self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2), 
-                                    self.positions[f,i][1] - self.board_states[f][1]])
+                                       5 * (self.positions[f,i][1] - self.board_states[f][1])])
                         self.positions.grad[f,i] += 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * a
                         self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * a
 
@@ -822,5 +822,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        self.gui.show("./viz_results/suction_tool/suction_tool_1/frames/{:04d}.png".format(frame))
+        self.gui.show("./viz_results/suction_tool/suction_tool_delayed/frames/{:04d}.png".format(frame))
         # self.gui.show()

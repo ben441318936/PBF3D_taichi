@@ -21,7 +21,8 @@
         
             ![delayed case](viz_results/suction_tool/suction_tool_delayed/out.gif)
 
-        - 
+    - The gradients for the vertical components seem very small, so the tool doesn't go deep enough into the fluid
+        - Can use a hack to weight the vertical component harder, or use adaptive gradients to take larger steps then the gradient is very small
         
 
 

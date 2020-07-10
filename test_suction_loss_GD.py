@@ -29,7 +29,7 @@ k = 0
 
 lr = 1e1
 
-while loss > 1e-2 and k < 501:
+while loss > 1e-2 and k < 101:
     print("GD iter {}".format(k))
 
     sim.initialize(board_states)
@@ -58,6 +58,9 @@ while loss > 1e-2 and k < 501:
     #     print("Board grads {}:".format(i), board_grads[i])
 
     board_grads = np.clip(board_grads, -10, 10)
+
+    if k == 100:
+        print(board_grads[-1])
 
     board_states -= lr * board_grads
 
