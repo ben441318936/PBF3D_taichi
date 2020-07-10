@@ -822,5 +822,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        self.gui.show("./viz_results/suction_tool/suction_tool_delayed/frames/{:04d}.png".format(frame))
-        # self.gui.show()
+        # self.gui.show("./viz_results/suction_tool/suction_tool_delayed/frames/{:04d}.png".format(frame))
+        self.gui.show()
