@@ -29,7 +29,7 @@ k = 0
 
 lr = 1e1
 
-while loss > 1e-2 and k < 101:
+while loss > 1e-2 and k < 501:
     print("GD iter {}".format(k))
 
     sim.initialize(board_states)

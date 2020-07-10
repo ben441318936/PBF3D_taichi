@@ -17,8 +17,8 @@ class HandGradSim:
 
         self.dim = 2
         self.delta_t = 1.0 / 20.0
-        self.max_timesteps = 110
-        self.num_particles = 200
+        self.max_timesteps = 200
+        self.num_particles = 100
 
         self.boundary = np.array([40.0,40.0])
 
@@ -822,5 +822,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        self.gui.show("./viz_results/suction_tool/suction_tool_delayed/frames/{:04d}.png".format(frame))
+        self.gui.show("./viz_results/suction_tool/suction_tool_1/frames/{:04d}.png".format(frame))
         # self.gui.show()

@@ -9,17 +9,19 @@
     - Implemented new loss that penalizes every timestep and resulting tool movements are much more sensible
         - For simple case where the tool can act as soon as particles come out, the tool will stay at the emission point and leads to very good loss
 
-        ![good case](viz_results/suction_tool/suction_tool_1/out.gif)
+            ![good case](viz_results/suction_tool/suction_tool_1/out.gif)
 
         - The gradients backprop through the particle positions back to the tool positions (solid-fluid one-way coupling) are not very good, it leads to spasmic movements
             - At this point not sure if the numerical values are just very unstable or if I have errors implementing the gradients
 
-        ![bad case](viz_results/suction_tool/suction_tool_2/out.gif)
+            ![bad case](viz_results/suction_tool/suction_tool_2/out.gif)
 
     - Distance based loss drives the tool to the centroid of the particles
         - This could be a problem when the centroid is not in the body of the fluid, resulting in no suction
         
-        ![delayed case](viz_results/suction_tool/suction_tool_delayed/out.gif)
+            ![delayed case](viz_results/suction_tool/suction_tool_delayed/out.gif)
+
+        - 
         
 
 
