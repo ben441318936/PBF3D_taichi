@@ -21,6 +21,8 @@
         
             ![delayed case](viz_results/suction_tool/suction_tool_delayed/out.gif)
 
+        - Consider a kind of projection where we force the tool to go to the particle nearest to the solved optimal point
+
     - The gradients for the vertical components seem very small, so the tool doesn't go deep enough into the fluid
         - Can use a hack to weight the vertical component harder, or use adaptive gradients to take larger steps then the gradient is very small
         
