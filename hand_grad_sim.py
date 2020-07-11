@@ -302,13 +302,13 @@ class HandGradSim:
                 self.positions.grad[frame-1,i] += jacobian_board @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
                 self.velocities.grad[frame-1,i] += jacobian_board @ jacobian_bounds @ self.positions_iter.grad[frame,0,i] * self.delta_t
                 g = jacobian_to_board_states @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
-                c = 1
-                for k in ti.static(range(self.dim)):
-                    if g[k] > c:
-                        g[k] = c
-                    elif g[k] < -c:
-                        g[k] = -c
-                self.board_states.grad[frame] += g
+                # c = 1
+                # for k in ti.static(range(self.dim)):
+                #     if g[k] > c:
+                #         g[k] = c
+                #     elif g[k] < -c:
+                #         g[k] = -c
+                # self.board_states.grad[frame] += g
 
     @ti.kernel
     def apply_suction(self, frame: ti.i32):
@@ -736,7 +736,7 @@ class HandGradSim:
                     if dist > 0:
                         # f = self.min_dist_frame[i]
                         a = ti.Vector([self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2), 
-                                       1 * (self.positions[f,i][1] - self.board_states[f][1])])
+                                       1 * (self.positions[f,i][1] - (self.board_states[f][1] - self.particle_radius))])
                         grad = ti.Vector([0.0, 0.0])
                         if a[0] < 0:
                             grad[0] = -1
@@ -866,5 +866,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        # self.gui.show("./viz_results/MPC/test5/frames/{:04d}.png".format(frame))
+        # self.gui.show("./viz_results/MPC/test3/frames/{:04d}.png".format(frame))
         self.gui.show()
