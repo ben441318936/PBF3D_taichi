@@ -1,0 +1,5 @@
+test1: L2, no coupling grad
+test2: L2, no coupling grad
+test3: L1, no coupling grad
+test4: L1, 0.1 coupling grad
+test5: L1, 1 coupling grade

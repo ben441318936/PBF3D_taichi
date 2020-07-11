@@ -1,7 +1,23 @@
 ## Work journal
 
 
-### Week of July 6th - July 9th, 2020
+### Week of July 6th - July 10th, 2020
+
+
+#### July 10th
+- Suction control
+    - Implemented MPC routine
+        - A main sim is considered the ground truth, at each timestep, the particle states are used to initialize an auxiliary sim
+        - The auxiliary runs for 10 steps and gradient descent is used to find the optimal tool trajectory
+        - The first step from the trajectory is taken, then the process is repeated
+    - Test 1 and 2
+        - Tool is allow to move after main sim is at 50 steps
+        - L2 loss
+    - Test 3
+        - Tool is allow to move after main sim is at 50 steps
+        - L1 loss
+    - L1 loss seem like a better heuristic, less likely to be 
+    
 
 
 #### July 9th
@@ -24,7 +40,7 @@
         - Consider a kind of projection where we force the tool to go to the particle nearest to the solved optimal point
 
     - The gradients for the vertical components seem very small, so the tool doesn't go deep enough into the fluid
-        - Can use a hack to weight the vertical component harder, or use adaptive gradients to take larger steps then the gradient is very small
+        - Can use a hack to weight the vertical component harder, or maybe use adaptive gradients to take larger steps then the gradient is very small
         
 
 
