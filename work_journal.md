@@ -13,12 +13,24 @@
     - Test 1 and 2
         - Tool is allow to move after main sim is at 50 steps
         - L2 loss
+
+            ![L2](viz_results/MPC/test2/out.gif)
+
     - Test 3
         - Tool is allow to move after main sim is at 50 steps
         - L1 loss
-    - L1 loss seem like a better heuristic, less likely to be at a position that doesn't suction anything
-    
 
+            ![L1](viz_results/MPC/test3/out.gif)
+
+    - L1 loss seem like a better heuristic, less likely to be at a position that doesn't suction anything
+
+    - Gradients from solid-fluid coupling are problematic, seem to add some non-smooth movements
+        - Gradient could be exploding
+        - Possible mistake in derivation and implementation 
+
+            ![L1_grad](viz_results/MPC/test5/out.gif)
+
+    
 
 #### July 9th
 - Suction control
