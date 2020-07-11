@@ -16,7 +16,7 @@
     - Test 3
         - Tool is allow to move after main sim is at 50 steps
         - L1 loss
-    - L1 loss seem like a better heuristic, less likely to be 
+    - L1 loss seem like a better heuristic, less likely to be at a position that doesn't suction anything
     
 
 
