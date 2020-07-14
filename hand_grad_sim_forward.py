@@ -2,7 +2,7 @@ from hand_grad_sim import HandGradSim
 import numpy as np
 import pickle
 
-sim = HandGradSim()
+sim = HandGradSim(max_timesteps=200, num_particles=100, do_render=True, do_emit=True)
 
 initial_pos0 = np.array([10.0, 10.0])
 initial_vel0 = np.array([10.0, 0.0])
@@ -27,15 +27,15 @@ with open(best_states_path, "rb") as f:
 
 sim.initialize(board_states)
 
-init_pos_path = "./states/init_pos.obj"
-with open(init_pos_path, "rb") as f:
-    init_pos = pickle.load(f)
+# init_pos_path = "./states/init_pos.obj"
+# with open(init_pos_path, "rb") as f:
+#     init_pos = pickle.load(f)
 
-init_vel_path = "./states/init_vel.obj"
-with open(init_vel_path, "rb") as f:
-    init_vel = pickle.load(f)  
+# init_vel_path = "./states/init_vel.obj"
+# with open(init_vel_path, "rb") as f:
+#     init_vel = pickle.load(f)  
 
-sim.emit_particles(100, 0, init_pos, init_vel)
+# sim.emit_particles(100, 0, init_pos, init_vel)
 
 sim.forward()
 

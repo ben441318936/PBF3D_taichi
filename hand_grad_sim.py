@@ -87,6 +87,7 @@ class HandGradSim:
         self.board_i = ti.var(ti.i32)
         # 0: width, 1: height
         self.board_dims = ti.Vector(self.dim, dt=ti.f32)
+        self.projected_board = ti.Vector(2, dt=ti.f32)
 
         self.distance_matrix = ti.var(ti.f32)
         self.min_dist_frame = ti.var(ti.i32)
@@ -126,6 +127,7 @@ class HandGradSim:
         ti.root.dense(ti.i, self.max_timesteps).place(self.board_states)
         ti.root.place(self.board_i)
         ti.root.place(self.board_dims)
+        ti.root.place(self.projected_board)
 
         ti.root.lazy_grad()
 
@@ -163,6 +165,7 @@ class HandGradSim:
         self.board_i[None] = 0
         self.init_target()
         self.init_board_dim(np.array([1.0, 10.0]))
+        self.projected_board.fill(-1)
         if board_states is not None:
             self.init_board(board_states)
         
@@ -234,16 +237,21 @@ class HandGradSim:
 
         p_proj = ti.Vector([p1[0], p1[1]])
 
+        old_board_left = self.board_states[frame-1][0]
+        old_board_right = self.board_states[frame-1][0] + self.board_dims[None][0]
+        old_board_bot = self.board_states[frame-1][1]
+        old_board_top = self.board_states[frame-1][1] + self.board_dims[None][1]
+
         # If particle is in the interior of the board rect
         if p1[0] >= board_left and p1[0] <= board_right and p1[1] >= board_bot and p1[1] <= board_top:
             # Regular projection, the projection is based on particle's previous location
-            if p0[0] <= board_left + 0.1:
+            if p0[0] <= old_board_left + 0.1:
                 p_proj[0] = board_left - self.epsilon * ti.random()
-            elif p0[0] >= board_right - 0.1:
+            elif p0[0] >= old_board_right - 0.:
                 p_proj[0] = board_right + self.epsilon * ti.random()
             if p0[1] <= board_bot + 0.1:
-                p_proj[1] = board_bot - self.epsilon * ti.random()
-            elif p0[1] >= board_top - 0.1:
+                p_proj[1] = old_board_bot - self.epsilon * ti.random()
+            elif p0[1] >= old_board_top - 0.1:
                 p_proj[1] = board_top + self.epsilon * ti.random()
             
         return p_proj
@@ -255,22 +263,27 @@ class HandGradSim:
         board_bot = self.board_states[frame][1]
         board_top = self.board_states[frame][1] + self.board_dims[None][1]
 
+        old_board_left = self.board_states[frame-1][0]
+        old_board_right = self.board_states[frame-1][0] + self.board_dims[None][0]
+        old_board_bot = self.board_states[frame-1][1]
+        old_board_top = self.board_states[frame-1][1] + self.board_dims[None][1]
+
         jacobian_p = ti.Matrix([[1.0, 0.0], [0.0, 1.0]])
         jacobian_b = ti.Matrix([[0.0, 0.0], [0.0, 0.0]])
 
         # If particle is in the interior of the board rect
         if p1[0] >= board_left and p1[0] <= board_right and p1[1] >= board_bot and p1[1] <= board_top:
             # Regular projection, the projection is based on particle's previous location
-            if p0[0] <= board_left + 0.1:
+            if p0[0] <= old_board_left + 0.5:
                 jacobian_p[0,0] = 0
                 jacobian_b[0,0] = 1
-            elif p0[0] >= board_right - 0.1:
+            elif p0[0] >= old_board_right - 0.5:
                 jacobian_p[0,0] = 0
                 jacobian_b[0,0] = 1
-            if p0[1] <= board_bot + 0.1:
+            if p0[1] <= old_board_bot + 0.1:
                 jacobian_p[1,1] = 0
                 jacobian_b[1,1] = 1
-            elif p0[1] >= board_top - 0.1:
+            elif p0[1] >= old_board_top - 0.1:
                 jacobian_p[1,1] = 0
                 jacobian_b[1,1] = 1
 
@@ -322,7 +335,7 @@ class HandGradSim:
                 board_top = self.board_states[frame][1] + self.board_dims[None][1]
 
                 # If particle is within some area, take it out of simulation
-                if pos_i[0] >= board_left and pos_i[0] <= board_right and pos_i[1] >= board_bot - 0.5:
+                if pos_i[0] >= board_left-0.5 and pos_i[0] <= board_right+0.5  and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1:
                     self.particle_active[frame,i] = 2
                     self.num_suctioned[frame] += 1
 
@@ -677,6 +690,61 @@ class HandGradSim:
                 self.positions_iter.grad[frame,self.pbf_num_iters,i] = jacobian_board @ jacobian_bounds @ self.positions.grad[frame,i]
 
     @ti.kernel
+    def compute_distance_project(self, f: ti.i32, p: ti.ext_arr()):
+        for i in range(self.num_particles):
+            if self.particle_active[f,i] == 1:
+                a = self.positions[f,i][0] - (p[0] + self.board_dims[None][0]/2)
+                if a < 0:
+                    a *= -1
+                b = self.positions[f,i][1] - (p[1] - self.particle_radius)
+                if b < 0:
+                    b *= -1
+                self.distance_matrix[f,i] = a + b
+
+    @ti.func
+    def clear_projected_board(self):
+        for i in ti.static(range(self.dim)):
+            self.projected_board[None][i] = -1
+
+    @ti.kernel
+    def project_board(self, frame: ti.i32, p: ti.ext_arr()):
+        self.clear_projected_board()
+        # min_dist = 1e5
+        # min_dist_ind = -1
+        # do_project = True
+        # if do_project:
+        #     for i in range(self.num_particles):
+        #         if self.particle_active[frame,i] == 1:
+        #             pos_i = self.positions[frame,i]
+
+        #             board_left = p[0]
+        #             board_right = p[0] + self.board_dims[None][0]
+        #             board_bot = p[1]
+        #             board_top = p[1] + self.board_dims[None][1]
+
+        #             # Found particle in suction area, no need to project
+        #             if pos_i[0] >= board_left and pos_i[0] <= board_right and pos_i[1] >= board_bot - 0.5:
+        #                 do_project = False
+        #             # Otherwise keep track of distance
+        #             else:
+        #                 dist = self.distance_matrix[frame,i]
+        #                 if dist <= min_dist:
+        #                     min_dist = dist
+        #                     min_dist_ind = i
+        # if do_project and not (min_dist_ind == -1):
+        #     part_pos = self.positions[frame,min_dist_ind]
+        #     temp = ti.Vector([0.0, 0.0])
+        #     temp[0] = part_pos[0] - self.board_dims[None][0]/2
+        #     temp[1] = part_pos[1] + self.particle_radius
+        #     self.projected_board[None] = self.confine_position_to_boundary_forward(temp)
+        # else:
+        #     self.projected_board[None][0] = p[0]
+        #     self.projected_board[None][1] = p[1]
+        temp = ti.Vector([p[0], p[1]])
+        self.projected_board[None] = self.confine_position_to_boundary_forward(temp)
+
+
+    @ti.kernel
     def compute_distances(self):
         for i in range(self.num_particles):
             # min_dist = (self.positions[1,i][0] - self.board_states[1][0])**2 + (self.positions[1,i][1] - self.board_states[1][1])**2
@@ -716,7 +784,7 @@ class HandGradSim:
                     dist = self.distance_matrix[f,i]
                     if dist > 0:
                         # loss += 1/2 * dist
-                        loss += dist
+                        loss +=  self.max_timesteps / ti.cast(f, ti.f32) * dist
                 self.loss[None] += loss / (self.num_active[f] - self.num_suctioned[f])
         self.loss[None] /= self.max_timesteps
 
@@ -746,8 +814,8 @@ class HandGradSim:
                             grad[1] = -1
                         else:
                             grad[1] = 1
-                        self.positions.grad[f,i] += 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad
-                        self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad
+                        self.positions.grad[f,i] += 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * self.max_timesteps / ti.cast(f,ti.f32) 
+                        self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * self.max_timesteps / ti.cast(f,ti.f32)
 
     def clear_neighbor_info(self):
         self.grid_num_particles.fill(0)
@@ -866,5 +934,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        # self.gui.show("./viz_results/MPC/test3/frames/{:04d}.png".format(frame))
-        self.gui.show()
+        self.gui.show("./viz_results/MPC/test14/frames/{:04d}.png".format(frame))
+        # self.gui.show()

@@ -1,6 +1,32 @@
 ## Work journal
 
 
+
+### Week of July 13th and July 13th, 2020
+
+
+#### July 13th
+- Suction control
+    - Small fix to make the tool-fluid boundary condition more accurate
+    - Implemented projection idea
+        - Movement is too jerky, not practical to do
+        - In reality the fluid will not be so particlized, so it's not really necessary 
+        - Perhaps only use it when the fluids are sparse and tool is not moving enough
+    - Tested several modifications to the optimal control formulation
+        - Use discount idea from Markov-decisino processes, put more weight on the earlier steps in the trajectory
+        - Compare the effects of different horizon lengths, images are 9 steps, 5 steps, 1 step
+
+            <img src="viz_results/MPC/test13/out.gif" width="350" height="200" />
+
+            <img src="viz_results/MPC/test14/out.gif" width="350" height="200" />
+
+            <img src="viz_results/MPC/test11/out.gif" width="350" height="200" />
+
+        - Next implement per particle weighting and put more weights on particles that existed for longer
+            - Fits intutition that we want to remove particles fast
+            - Possibly break ties in equidistant cases
+
+
 ### Week of July 6th - July 10th, 2020
 
 

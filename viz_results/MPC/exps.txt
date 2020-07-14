@@ -2,4 +2,12 @@ test1: L2, no coupling grad
 test2: L2, no coupling grad
 test3: L1, no coupling grad
 test4: L1, 0.1 coupling grad
-test5: L1, 1 coupling grade
+test5: L1, 1 coupling grad
+test6: L1, no coupling grad, project
+test7: test3 with more accurate boundary conditions
+test8: test4 with more accurate boundary conditions
+test9: test5 with more accurate boundary conditions
+test10: test3, suction tool more like video
+test11: discount factor = max_steps / frame, 9 steps MPC
+test12: discount factor = 0.9^frame
+test13: discount factor = max_steps / frame, 1 step MPC
