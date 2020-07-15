@@ -2,7 +2,19 @@
 
 
 
-### Week of July 13th and July 13th, 2020
+### Week of July 13th and July 14th, 2020
+
+
+#### July 14th
+- Suction control
+    - Particle weight by age doesn't work well
+        - Movements are targeting points that don't make sense
+    - Gradient checker
+        - Not really working yet
+        - Thinking about putting this on hold and focus on the simple control first
+    - Next steps
+        - Tool orientation
+        - Different cavity shapes
 
 
 #### July 13th
@@ -13,7 +25,7 @@
         - In reality the fluid will not be so particlized, so it's not really necessary 
         - Perhaps only use it when the fluids are sparse and tool is not moving enough
     - Tested several modifications to the optimal control formulation
-        - Use discount idea from Markov-decisino processes, put more weight on the earlier steps in the trajectory
+        - Use discount idea from Markov-decision processes, put more weight on the earlier steps in the trajectory
         - Compare the effects of different horizon lengths, images are 9 steps, 5 steps, 1 step
 
             <img src="viz_results/MPC/test13/out.gif" width="350" height="200" />

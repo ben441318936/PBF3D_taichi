@@ -93,6 +93,8 @@ class HandGradSim:
         self.min_dist_frame = ti.var(ti.i32)
         self.loss = ti.var(ti.f32)
 
+        self.particle_age = ti.var(ti.i32)
+
         self.place_vars()
 
     def place_vars(self):
@@ -104,6 +106,8 @@ class HandGradSim:
         ti.root.dense(ti.i, self.num_particles).place(self.min_dist_frame)
         ti.root.place(self.loss)
         ti.root.place(self.target)
+
+        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.particle_age)
 
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.particle_active)
         ti.root.dense(ti.i, self.max_timesteps).place(self.num_active)
@@ -144,7 +148,6 @@ class HandGradSim:
     @ti.kernel
     def init_board_dim(self, dims: ti.ext_arr()):
         self.board_dims[None] = ti.Vector([dims[0], dims[1]])
-        
 
     def initialize(self, board_states=None):
         self.positions.fill(0.0)
@@ -168,8 +171,9 @@ class HandGradSim:
         self.projected_board.fill(-1)
         if board_states is not None:
             self.init_board(board_states)
-        
+        self.particle_age.fill(0)
 
+        
     def clear_global_grads(self):
         self.positions.grad.fill(0.0)
         self.positions_after_grav.grad.fill(0.0)
@@ -188,17 +192,22 @@ class HandGradSim:
     def place_particle(self, frame: ti.i32, i: ti.i32, p: ti.ext_arr(), v: ti.ext_arr()):
         pos = ti.Vector([p[0], p[1]])
         pos = self.confine_position_to_boundary_forward(pos)
+        pos = self.confine_position_to_board_forward(i, pos, pos)
         for k in ti.static(range(self.dim)):
             self.positions[frame, i][k] = pos[k]
             self.velocities[frame, i][k] = v[k]
 
-    def emit_particles(self, n, frame, p, v):
+    def emit_particles(self, n, frame, p, v, ages=None):
         for i in range(n):
             if self.num_active[frame] < self.num_particles:
                 offset = np.array([0,0])
                 self.place_particle(frame, self.num_active[frame], p[i] + offset, v[i])
                 self.particle_active[frame, self.num_active[frame]] = 1
-                self.num_active[frame] += 1 
+                if ages is not None:
+                    self.particle_age[frame, self.num_active[frame]] = ages[i]
+                else:
+                    self.particle_age[frame, self.num_active[frame]] = 1
+                self.num_active[frame] += 1
 
     @ti.func
     def confine_position_to_boundary_forward(self, p):
@@ -300,7 +309,7 @@ class HandGradSim:
                 pos += vel * self.delta_t
                 self.positions_after_grav[frame,i] = pos
                 # The position info going into the solver iterations is the confined version
-                positions_after_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i],pos)
+                positions_after_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
                 self.positions_iter[frame,0,i] = self.confine_position_to_boundary_forward(positions_after_board)
 
     @ti.kernel
@@ -314,7 +323,7 @@ class HandGradSim:
                 # positions and velocities contributes to positions_after_grav, so it needs component-wise gating
                 self.positions.grad[frame-1,i] += jacobian_board @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
                 self.velocities.grad[frame-1,i] += jacobian_board @ jacobian_bounds @ self.positions_iter.grad[frame,0,i] * self.delta_t
-                g = jacobian_to_board_states @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
+                # g = jacobian_to_board_states @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
                 # c = 1
                 # for k in ti.static(range(self.dim)):
                 #     if g[k] > c:
@@ -338,6 +347,9 @@ class HandGradSim:
                 if pos_i[0] >= board_left-0.5 and pos_i[0] <= board_right+0.5  and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1:
                     self.particle_active[frame,i] = 2
                     self.num_suctioned[frame] += 1
+                # else increase its age by 1
+                else:
+                    self.particle_age[frame,i] += 1
 
     @ti.kernel
     def update_velocity_froward(self, frame: ti.i32):
@@ -784,7 +796,7 @@ class HandGradSim:
                     dist = self.distance_matrix[f,i]
                     if dist > 0:
                         # loss += 1/2 * dist
-                        loss +=  self.max_timesteps / ti.cast(f, ti.f32) * dist
+                        loss +=  (self.max_timesteps / ti.cast(f, ti.f32)) * dist #(1.001**self.particle_age[f,i]) * dist
                 self.loss[None] += loss / (self.num_active[f] - self.num_suctioned[f])
         self.loss[None] /= self.max_timesteps
 
@@ -814,8 +826,8 @@ class HandGradSim:
                             grad[1] = -1
                         else:
                             grad[1] = 1
-                        self.positions.grad[f,i] += 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * self.max_timesteps / ti.cast(f,ti.f32) 
-                        self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * self.max_timesteps / ti.cast(f,ti.f32)
+                        self.positions.grad[f,i] += 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * (self.max_timesteps / ti.cast(f, ti.f32)) #* (1.001**self.particle_age[f,i])
+                        self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * (self.max_timesteps / ti.cast(f, ti.f32)) #* (1.001**self.particle_age[f,i])
 
     def clear_neighbor_info(self):
         self.grid_num_particles.fill(0)
@@ -827,8 +839,9 @@ class HandGradSim:
     def copy_active(self, frame: ti.i32):
         for i in range(self.num_particles):
             self.particle_active[frame,i] = self.particle_active[frame-1,i]
-            self.num_active[frame] = self.num_active[frame-1]
-            self.num_suctioned[frame] = self.num_suctioned[frame-1]
+            self.particle_age[frame,i] = self.particle_age[frame-1,i]
+        self.num_active[frame] = self.num_active[frame-1]
+        self.num_suctioned[frame] = self.num_suctioned[frame-1]
 
 
     def step_forward(self, frame):
@@ -934,5 +947,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        self.gui.show("./viz_results/MPC/test14/frames/{:04d}.png".format(frame))
+        self.gui.show("./viz_results/MPC/test15/frames/{:04d}.png".format(frame))
         # self.gui.show()

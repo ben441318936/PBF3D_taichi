@@ -11,3 +11,5 @@ test10: test3, suction tool more like video
 test11: discount factor = max_steps / frame, 9 steps MPC
 test12: discount factor = 0.9^frame
 test13: discount factor = max_steps / frame, 1 step MPC
+test14: discount factor = max_steps / frame, 5 step MPC
+test15: test11

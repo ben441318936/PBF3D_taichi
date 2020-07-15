@@ -3,7 +3,7 @@ import numpy as np
 import pickle
 
 actual_sim = HandGradSim(max_timesteps=300, num_particles=200, do_render=True, do_emit=True)
-aux_sim = HandGradSim(max_timesteps=6, num_particles=200, do_render=False, do_emit=True)
+aux_sim = HandGradSim(max_timesteps=10, num_particles=200, do_render=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
@@ -31,6 +31,7 @@ for i in range(100,actual_sim.max_timesteps):
     part_active = actual_sim.particle_active.to_numpy()[i-1,:]
     part_num_active = actual_sim.num_active.to_numpy()[i-1]
     part_num_suctioned = actual_sim.num_suctioned.to_numpy()[i-1]
+    part_ages = actual_sim.particle_age.to_numpy()[i-1]
 
     if part_num_active - part_num_suctioned > 0:
 
@@ -49,7 +50,8 @@ for i in range(100,actual_sim.max_timesteps):
             actives = np.where(part_active==1)[0]
             active_pos = part_pos[actives, :]
             active_vel = part_pos[actives, :]
-            aux_sim.emit_particles(len(actives), 0, active_pos, active_vel)
+            active_ages = part_ages[actives]
+            aux_sim.emit_particles(len(actives), 0, active_pos, active_vel, active_ages)
 
             aux_sim.forward()
             loss = aux_sim.loss[None]
