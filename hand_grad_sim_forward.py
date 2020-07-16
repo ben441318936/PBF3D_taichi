@@ -2,22 +2,26 @@ from hand_grad_sim import HandGradSim
 import numpy as np
 import pickle
 
-sim = HandGradSim(max_timesteps=200, num_particles=100, do_render=True, do_emit=True)
+sim = HandGradSim(max_timesteps=200, num_particles=200, do_render=True, do_emit=True)
 
 initial_pos0 = np.array([10.0, 10.0])
 initial_vel0 = np.array([10.0, 0.0])
 
-# board_states = np.zeros((sim.max_timesteps,sim.dim))
-# for i in range(sim.max_timesteps):
-#     board_states[i,:] = np.array([10.0, 20.0])
+board_states = np.zeros((sim.max_timesteps,sim.dim))
+for i in range(sim.max_timesteps):
+    board_states[i,:] = np.array([10.0, 20.0])
 
-# board_states = np.zeros((sim.max_timesteps,sim.dim))
-# for i in range(sim.max_timesteps):
-#     board_states[i,:] = np.array([10.0, 20.0])
+tool_centers = np.zeros((sim.max_timesteps,sim.dim))
+for i in range(sim.max_timesteps):
+    tool_centers[i,:] = np.array([16.0, 7.0])
 
-best_states_path = "./states/set2/best_states_1.obj"
-with open(best_states_path, "rb") as f:
-    board_states = pickle.load(f)
+tool_thetas = np.zeros((sim.max_timesteps,))
+for i in range(sim.max_timesteps):
+    tool_thetas[i] = i * 2 * np.pi / sim.max_timesteps
+
+# best_states_path = "./states/set2/best_states_1.obj"
+# with open(best_states_path, "rb") as f:
+#     board_states = pickle.load(f)
 
 # iter_states_path = "./states/iter_states.obj"
 # with open(iter_states_path, "rb") as f:
@@ -25,7 +29,7 @@ with open(best_states_path, "rb") as f:
 
 # board_states = iter_states["iter1000"]
 
-sim.initialize(board_states)
+sim.initialize(board_states, tool_centers, tool_thetas)
 
 # init_pos_path = "./states/init_pos.obj"
 # with open(init_pos_path, "rb") as f:

@@ -83,6 +83,11 @@ class HandGradSim:
         self.SGS_to_grad_j = ti.Vector(self.dim, ti.f32)
         self.local_grad_j = ti.Vector(self.dim, ti.f32)
 
+        self.tool_centers = ti.Vector(2, dt=ti.f32)
+        self.tool_thetas = ti.var(ti.f32)
+        self.tool_dims = ti.Vector(2, dt=ti.f32)
+        self.tool_vertices = ti.Vector(2, ti.f32)
+
         self.board_states = ti.Vector(2, dt=ti.f32)
         self.board_i = ti.var(ti.i32)
         # 0: width, 1: height
@@ -131,6 +136,12 @@ class HandGradSim:
         ti.root.dense(ti.i, self.max_timesteps).place(self.board_states)
         ti.root.place(self.board_i)
         ti.root.place(self.board_dims)
+
+        ti.root.dense(ti.i, self.max_timesteps).place(self.tool_centers)
+        ti.root.dense(ti.i, self.max_timesteps).place(self.tool_thetas)
+        ti.root.place(self.tool_dims)
+        ti.root.dense(ti.i, 4).place(self.tool_vertices) # Only for rendering
+
         ti.root.place(self.projected_board)
 
         ti.root.lazy_grad()
@@ -146,10 +157,25 @@ class HandGradSim:
                 self.board_states[i][k] = states[i,k]
 
     @ti.kernel
+    def init_tool_centers(self, states: ti.ext_arr()):
+        for i in range(self.max_timesteps):
+            for k in ti.static(range(self.dim)):
+                self.tool_centers[i][k] = states[i,k]
+
+    @ti.kernel
     def init_board_dim(self, dims: ti.ext_arr()):
         self.board_dims[None] = ti.Vector([dims[0], dims[1]])
 
-    def initialize(self, board_states=None):
+    @ti.kernel
+    def init_tool_dim(self, dims: ti.ext_arr()):
+        self.tool_dims[None] = ti.Vector([dims[0], dims[1]])
+
+    @ti.kernel
+    def init_tool_thetas(self, thetas: ti.ext_arr()):
+        for i in range(self.max_timesteps):
+            self.tool_thetas[i] = thetas[i]
+
+    def initialize(self, board_states=None, tool_centers=None, tool_thetas=None):
         self.positions.fill(0.0)
         self.positions_after_grav.fill(0.0)
         self.positions_iter.fill(0.0)
@@ -165,12 +191,19 @@ class HandGradSim:
         self.clear_neighbor_info()
         # Temporary hardcoded values here
         self.board_states.fill(100.0)
+        self.tool_centers.fill(20.0)
+        self.tool_thetas.fill(0)
         self.board_i[None] = 0
         self.init_target()
         self.init_board_dim(np.array([1.0, 10.0]))
+        self.init_tool_dim(np.array([1.5, 10.0]))
         self.projected_board.fill(-1)
         if board_states is not None:
             self.init_board(board_states)
+        if tool_centers is not None:
+            self.init_tool_centers(tool_centers)
+        if tool_thetas is not None:
+            self.init_tool_thetas(tool_thetas)
         self.particle_age.fill(0)
 
         
@@ -182,6 +215,8 @@ class HandGradSim:
         self.lambdas.grad.fill(0.0)
         self.position_deltas.grad.fill(0.0)
         self.board_states.grad.fill(0.0)
+        self.tool_centers.grad.fill(0.0)
+        self.tool_thetas.grad.fill(0.0)
         self.loss.grad.fill(0.0)
 
     def clear_local_grads(self):
@@ -238,6 +273,127 @@ class HandGradSim:
         return jacobian
 
     @ti.func
+    def translate(self, p, c):
+        return p + c
+
+    @ti.func
+    def rotate(self, p, theta):
+        new_p = ti.Vector([0.0, 0.0])
+        new_p[0] = p[0] * ti.cos(theta) - p[1] * ti.sin(theta)
+        new_p[1] = p[0] * ti.sin(theta) + p[1] * ti.cos(theta)
+        return new_p
+
+    @ti.func
+    def transform_particle(self, p, c, theta):
+        p = self.translate(p, -1*c)
+        p = self.rotate(p, theta)
+        p = self.translate(p, c)
+        return p
+
+    @ti.func
+    def confine_position_to_tool_forward(self, frame, p):
+        center = self.tool_centers[frame]
+        theta = self.tool_thetas[frame]
+        dims = self.tool_dims[None]
+
+        p_trans = self.transform_particle(p, center, -1 * theta)
+
+        left = center[0] - dims[0]/2
+        right = center[0] + dims[0]/2
+        bot = center[1] - dims[1]/2
+        top = center[1] + dims[1]/2
+
+        p_proj = ti.Vector([p_trans[0], p_trans[1]])
+
+        # If particle is in the interior of the board rect
+        if p_trans[0] >= left and p_trans[0] <= right and p_trans[1] >= bot and p_trans[1] <= top:
+
+            d = ti.Vector([0.0, 0.0, 0.0, 0.0])
+            d[0] = ti.abs(p_trans[0] - left)
+            d[1] = ti.abs(p_trans[0] - right)
+            d[2] = ti.abs(p_trans[1] - bot)
+            d[3] = ti.abs(p_trans[1] - top)
+
+            min_d = d[0]
+            ind = 0
+
+            for k in ti.static(range(4)):
+                if d[k] < min_d:
+                    ind = k
+
+            if ind == 0:
+                p_proj[0] = left - self.epsilon * ti.random()
+            elif ind == 1:
+                p_proj[0] = right + self.epsilon * ti.random()
+            elif ind == 2:
+                p_proj[1] = bot - self.epsilon * ti.random()
+            else:
+                p_proj[1] = top + self.epsilon * ti.random()
+        
+        p_proj = self.transform_particle(p_proj, center, theta)
+
+        return p_proj
+
+    @ti.func
+    def confine_position_to_tool_backward(self, frame, p):
+        center = self.tool_centers[frame]
+        theta = self.tool_thetas[frame]
+        dims = self.tool_dims[None]
+
+        p_trans = self.transform_particle(p, center, -1 * theta)
+
+        left = center[0] - dims[0]/2
+        right = center[0] + dims[0]/2
+        bot = center[1] - dims[1]/2
+        top = center[1] + dims[1]/2
+
+        jacobian_p = ti.Matrix([[1.0, 0.0], [0.0, 1.0]])
+
+        # If particle is in the interior of the board rect
+        if p_trans[0] >= left and p_trans[0] <= right and p_trans[1] >= bot and p_trans[1] <= top:
+
+            d = ti.Vector([0.0, 0.0, 0.0, 0.0])
+            d[0] = p_trans[0] - left
+            d[1] = p_trans[0] - right
+            d[2] = p_trans[1] - bot
+            d[3] = p_trans[1] - top
+
+            min_d = ti.abs(d[0])
+            ind = 0
+
+            for k in ti.static(range(4)):
+                if ti.abs(d[k]) < ti.abs(min_d):
+                    ind = k
+
+            sign = 1
+            if d[ind] < 0:
+                sign = -1
+
+            if ind == 0:
+                n = ti.Vector([-1, 0])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]], 
+                                        [sign*ti.sin(theta)*n[0],    sign*ti.sin(theta)*n[1]])
+            elif ind == 1:
+                n = ti.Vector([1, 0])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]], 
+                                        [sign*ti.sin(theta)*n[0],    sign*ti.sin(theta)*n[1]])
+            elif ind == 2:
+                n = ti.Vector([0, -1])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.sin(theta)*n[0], sign*-1*ti.sin(theta)*n[1]], 
+                                        [sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]])
+            else:
+                n = ti.Vector([0, 1])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.sin(theta)*n[0], sign*-1*ti.sin(theta)*n[1]], 
+                                        [sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]])
+
+        return jacobian_p
+
+
+    @ti.func
     def confine_position_to_board_forward(self, frame, p0, p1):
         board_left = self.board_states[frame][0]
         board_right = self.board_states[frame][0] + self.board_dims[None][0]
@@ -256,7 +412,7 @@ class HandGradSim:
             # Regular projection, the projection is based on particle's previous location
             if p0[0] <= old_board_left + 0.1:
                 p_proj[0] = board_left - self.epsilon * ti.random()
-            elif p0[0] >= old_board_right - 0.:
+            elif p0[0] >= old_board_right - 0.1:
                 p_proj[0] = board_right + self.epsilon * ti.random()
             if p0[1] <= board_bot + 0.1:
                 p_proj[1] = old_board_bot - self.epsilon * ti.random()
@@ -309,7 +465,8 @@ class HandGradSim:
                 pos += vel * self.delta_t
                 self.positions_after_grav[frame,i] = pos
                 # The position info going into the solver iterations is the confined version
-                positions_after_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                # positions_after_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                positions_after_board = self.confine_position_to_tool_forward(frame, pos)
                 self.positions_iter[frame,0,i] = self.confine_position_to_boundary_forward(positions_after_board)
 
     @ti.kernel
@@ -880,7 +1037,7 @@ class HandGradSim:
     def forward(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(1, 0, np.array([[20.0, 1.0]]), np.array([[10.0, 0.0]]))
+            self.emit_particles(1, 0, np.array([[10.0, 10.0]]), np.array([[10.0, 0.0]]))
         if self.do_render:
             self.render(0)
         for i in range(1,self.max_timesteps):
@@ -889,7 +1046,7 @@ class HandGradSim:
             if self.do_render:
                 self.render(i)
             if self.do_emit:
-                self.emit_particles(1, i, np.array([[20.0, 1.0]]), np.array([[10.0, 0.0]]))
+                self.emit_particles(1, i, np.array([10.0, 10.0]), np.array([[10.0, 0.0]]))
         self.loss[None] = 0
         self.compute_distances()
         self.compute_loss_forward()
@@ -905,7 +1062,7 @@ class HandGradSim:
     def init_step(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(1, 0, np.array([[20.0, 1.0]]), np.array([[10.0, 0.0]]))
+            self.emit_particles(1, 0, np.array([[10.0, 10.0]]), np.array([[10.0, 0.0]]))
         if self.do_render:
             self.render(0)
 
@@ -920,7 +1077,34 @@ class HandGradSim:
         if self.do_render:
             self.render(frame)
         if self.do_emit:
-            self.emit_particles(1, frame, np.array([[20.0, 1.0]]), np.array([[10.0, 0.0]]))
+            self.emit_particles(1, frame, np.array([[10.0, 10.0]]), np.array([[10.0, 0.0]]))
+
+    @ti.kernel
+    def prepare_tool_vertices(self, frame: ti.i32):
+        # Tool rect, with rotation
+        dims = self.tool_dims[None]
+        center = self.tool_centers[frame]
+        theta = self.tool_thetas[frame]
+        # Tool vertices in tool coordinate
+        topLeft = center + ti.Vector([-1 * dims[0]/2, dims[1]/2])
+        topRight = center + ti.Vector([dims[0]/2, dims[1]/2])
+        botLeft = center + ti.Vector([-1 * dims[0]/2, -1 * dims[1]/2])
+        botRight = center + ti.Vector([dims[0]/2, -1 * dims[1]/2])
+        # Tool vertices in global coordinate, in image scale
+        topLeft_T = self.transform_particle(topLeft, center, theta)
+        topRight_T = self.transform_particle(topRight, center, theta)
+        botLeft_T = self.transform_particle(botLeft, center, theta)
+        botRight_T = self.transform_particle(botRight, center, theta)
+        # Element-wise normalization to image scale
+        for k in ti.static(range(self.dim)):
+            topLeft_T[k] = topLeft_T[k] / self.boundary[k]
+            topRight_T[k] = topRight_T[k] / self.boundary[k]
+            botLeft_T[k] = botLeft_T[k] / self.boundary[k]
+            botRight_T[k] = botRight_T[k] / self.boundary[k]
+        self.tool_vertices[0] = topLeft_T
+        self.tool_vertices[1] = topRight_T
+        self.tool_vertices[2] = botRight_T
+        self.tool_vertices[3] = botLeft_T
 
     def render(self,frame):
         canvas = self.gui.canvas
@@ -939,6 +1123,13 @@ class HandGradSim:
                     ti.vec(1.0,1.0)
                     ).radius(1.5).color(self.boundary_color).close().finish()
 
+        # Draw lines
+        self.prepare_tool_vertices(frame)
+        self.gui.line(self.tool_vertices[0], self.tool_vertices[1], color=self.boundary_color, radius=1.5)
+        self.gui.line(self.tool_vertices[1], self.tool_vertices[2], color=self.boundary_color, radius=1.5)
+        self.gui.line(self.tool_vertices[2], self.tool_vertices[3], color=self.boundary_color, radius=1.5)
+        self.gui.line(self.tool_vertices[3], self.tool_vertices[0], color=self.boundary_color, radius=1.5)
+
         # Board rect
         botLeftX = self.board_states[frame][0] / self.boundary[0]
         botLeftY = self.board_states[frame][1] / self.boundary[1]
@@ -947,5 +1138,5 @@ class HandGradSim:
         canvas.rect(ti.vec(botLeftX, botLeftY), ti.vec(topRightX, topRightY)
                     ).radius(1.5).color(self.boundary_color).close().finish()
         
-        self.gui.show("./viz_results/MPC/test15/frames/{:04d}.png".format(frame))
-        # self.gui.show()
+        # self.gui.show("./viz_results/MPC/test17/frames/{:04d}.png".format(frame))
+        self.gui.show()

@@ -2,7 +2,15 @@
 
 
 
-### Week of July 13th and July 14th, 2020
+### Week of July 13th and July 15th, 2020
+
+
+#### July 15th
+- Suction control
+    - Tool orientation
+        - Coded in forward and backard boundary conditions
+    - Next steps
+        - Added in forward and backward loss computation with tool orientation
 
 
 #### July 14th
