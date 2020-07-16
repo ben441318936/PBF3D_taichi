@@ -492,21 +492,42 @@ class HandGradSim:
     @ti.kernel
     def apply_suction(self, frame: ti.i32):
         for i in range(self.num_particles):
+            # if self.particle_active[frame,i] == 1:
+            #     pos_i = self.positions[frame,i]
+
+            #     board_left = self.board_states[frame][0]
+            #     board_right = self.board_states[frame][0] + self.board_dims[None][0]
+            #     board_bot = self.board_states[frame][1]
+            #     board_top = self.board_states[frame][1] + self.board_dims[None][1]
+
+            #     # If particle is within some area, take it out of simulation
+            #     if pos_i[0] >= board_left-0.5 and pos_i[0] <= board_right+0.5  and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1:
+            #         self.particle_active[frame,i] = 2
+            #         self.num_suctioned[frame] += 1
+            #     # else increase its age by 1
+            #     else:
+            #         self.particle_age[frame,i] += 1
             if self.particle_active[frame,i] == 1:
                 pos_i = self.positions[frame,i]
 
-                board_left = self.board_states[frame][0]
-                board_right = self.board_states[frame][0] + self.board_dims[None][0]
-                board_bot = self.board_states[frame][1]
-                board_top = self.board_states[frame][1] + self.board_dims[None][1]
+                center = self.tool_centers[frame]
+                theta = self.tool_thetas[frame]
+                dims = self.tool_dims[None]
 
-                # If particle is within some area, take it out of simulation
-                if pos_i[0] >= board_left-0.5 and pos_i[0] <= board_right+0.5  and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1:
+                left = center[0] - dims[0]/2
+                right = center[0] + dims[0]/2
+                bot = center[1] - dims[1]/2
+                top = center[1] + dims[1]/2
+
+                pos_i_trans = self.transform_particle(pos_i, center, -1*theta)
+
+                if pos_i_trans[0] >= left-0.5 and pos_i_trans[0] <= right+0.5 and pos_i_trans[1] >= bot-0.5 and pos_i_trans[1] <= bot+1:
                     self.particle_active[frame,i] = 2
                     self.num_suctioned[frame] += 1
-                # else increase its age by 1
                 else:
                     self.particle_age[frame,i] += 1
+
+
 
     @ti.kernel
     def update_velocity_froward(self, frame: ti.i32):
@@ -919,16 +940,23 @@ class HandGradSim:
             # min_dist = (self.positions[1,i][0] - self.board_states[1][0])**2 + (self.positions[1,i][1] - self.board_states[1][1])**2
             # min_dist_frame = 1
             for f in range(1, self.max_timesteps):
+                center = self.tool_centers[f]
+                theta = self.tool_thetas[f]
+                dims = self.tool_dims[None]
+                target = center - ti.Vector([0.0, dims[1]/2+self.particle_radius])
+                target = self.transform_particle(target, center, theta)
                 # dist = 0
                 if self.particle_active[f,i] == 2:
                     self.distance_matrix[f,i] = 0
                     # min_dist_frame = f
                 elif self.particle_active[f,i] == 1:
                     # self.distance_matrix[f,i] = (self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2))**2 + 1*(self.positions[f,i][1] - self.board_states[f][1])**2
-                    a = self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2)
+                    # a = self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2)
+                    a = self.positions[f,i][0] - target[0]
                     if a < 0:
                         a *= -1
-                    b = self.positions[f,i][1] - (self.board_states[f][1] - self.particle_radius)
+                    # b = self.positions[f,i][1] - (self.board_states[f][1] - self.particle_radius)
+                    b = self.positions[f,i][1] - target[1]
                     if b < 0:
                         b *= -1
                     self.distance_matrix[f,i] = a + b
@@ -967,13 +995,23 @@ class HandGradSim:
             
         for f in range(1,self.max_timesteps):
             n = self.num_active[f] - self.num_suctioned[f]
+            center = self.tool_centers[f]
+            theta = self.tool_thetas[f]
+            dims = self.tool_dims[None]
+            target = self.tool_centers - ti.Vector([0.0, dims[1]/2+self.particle_radius])
+            target = self.transform_particle(target, center, theta)
+            jacobian_c = ti.Matrix([-1*ti.sin(theta), ti.cos(theta)],
+                                   [-1*ti.cos(theta), ti.sin(theta)])
+            jacobian_theta = ti.Vector([[-1*center[0]*ti.sin(theta)-center[1]*ti.cos(theta)],
+                                        [center[0]*ti.cos(theta)+center[1]*ti.sin(theta)]])
             if n != 0:
                 for i in range(self.num_particles):
                     dist = self.distance_matrix[f,i]
                     if dist > 0:
                         # f = self.min_dist_frame[i]
-                        a = ti.Vector([self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2), 
-                                       1 * (self.positions[f,i][1] - (self.board_states[f][1] - self.particle_radius))])
+                        # a = ti.Vector([self.positions[f,i][0] - (self.board_states[f][0] + self.board_dims[None][0]/2), 
+                        #                1 * (self.positions[f,i][1] - (self.board_states[f][1] - self.particle_radius))])
+                        a = self.positions[f,i] - target
                         grad = ti.Vector([0.0, 0.0])
                         if a[0] < 0:
                             grad[0] = -1
@@ -984,7 +1022,9 @@ class HandGradSim:
                         else:
                             grad[1] = 1
                         self.positions.grad[f,i] += 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * (self.max_timesteps / ti.cast(f, ti.f32)) #* (1.001**self.particle_age[f,i])
-                        self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * (self.max_timesteps / ti.cast(f, ti.f32)) #* (1.001**self.particle_age[f,i])
+                        # self.board_states.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * grad * (self.max_timesteps / ti.cast(f, ti.f32)) #* (1.001**self.particle_age[f,i])
+                        self.tool_centers.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * (self.max_timesteps / ti.cast(f, ti.f32)) * jacobian_c @ grad
+                        self.tool_thetas.grad[f] += - 1.0 / (self.num_active[f] - self.num_suctioned[f]) / self.max_timesteps * (self.max_timesteps / ti.cast(f, ti.f32)) * jacobian_theta.dot(grad)
 
     def clear_neighbor_info(self):
         self.grid_num_particles.fill(0)
