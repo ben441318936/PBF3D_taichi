@@ -2,7 +2,15 @@
 
 
 
-### Week of July 13th and July 15th, 2020
+### Week of July 13th and July 16th, 2020
+
+
+
+#### July 16th
+- Suction control
+    - Preparing to extend forward simulation to 3D for mesh generation
+- Fluid rendering
+    - Prepared new cavity and datasets for Florian
 
 
 #### July 15th
