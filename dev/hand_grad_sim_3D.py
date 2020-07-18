@@ -6,16 +6,18 @@ ti.init(arch=ti.gpu)
 
 @ti.data_oriented
 class HandGradSim3D:
-    def __init__(self, max_timesteps=10, num_particles=10, do_emit=False):
+    def __init__(self, max_timesteps=10, num_particles=10, do_emit=False, do_save_ply=False, do_save_npz=False):
 
-        self.dim = 2
+        self.dim = 3
         self.delta_t = 1.0 / 20.0
         self.max_timesteps = max_timesteps
         self.num_particles = num_particles
 
         self.do_emit = do_emit
+        self.do_save_ply = do_save_ply
+        self.do_save_npz = do_save_npz
 
-        self.boundary = np.array([40.0,40.0,40.0])
+        self.boundary = np.array([40.0, 40.0, 20.0])
 
         self.cell_size = 2.51
         self.cell_recpr = 1.0 / self.cell_size
@@ -109,9 +111,9 @@ class HandGradSim3D:
 
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.pbf_num_iters).dense(ti.k, self.num_particles).place(self.position_deltas)
 
-        grid_snode = ti.root.dense(ti.i, self.max_timesteps).dense(ti.jk, self.grid_size)
+        grid_snode = ti.root.dense(ti.i, self.max_timesteps).dense(ti.indices(1,2,3), self.grid_size)
         grid_snode.place(self.grid_num_particles)
-        grid_snode.dense(ti.l, self.max_num_particles_per_cell).place(self.grid2particles)
+        grid_snode.dense(ti.indices(4), self.max_num_particles_per_cell).place(self.grid2particles)
 
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.pbf_num_iters).dense(ti.k, self.num_particles).place(self.lambdas)
 
@@ -149,11 +151,11 @@ class HandGradSim3D:
 
     @ti.kernel
     def init_board_dim(self, dims: ti.ext_arr()):
-        self.board_dims[None] = ti.Vector([dims[0], dims[1]])
+        self.board_dims[None] = ti.Vector([dims[0], dims[1], dims[2]])
 
     @ti.kernel
     def init_tool_dim(self, dims: ti.ext_arr()):
-        self.tool_dims[None] = ti.Vector([dims[0], dims[1]])
+        self.tool_dims[None] = ti.Vector([dims[0], dims[1], dims[2]])
 
     @ti.kernel
     def init_tool_thetas(self, thetas: ti.ext_arr()):
@@ -179,8 +181,8 @@ class HandGradSim3D:
         self.tool_centers.fill(20.0)
         self.tool_thetas.fill(0)
         self.board_i[None] = 0
-        self.init_board_dim(np.array([1.0, 10.0]))
-        self.init_tool_dim(np.array([1.5, 10.0]))
+        self.init_board_dim(np.array([1.0, 10.0, 1.0]))
+        self.init_tool_dim(np.array([1.5, 10.0, 1.5]))
         self.projected_board.fill(-1)
         if board_states is not None:
             self.init_board(board_states)
@@ -211,7 +213,7 @@ class HandGradSim3D:
     def place_particle(self, frame: ti.i32, i: ti.i32, p: ti.ext_arr(), v: ti.ext_arr()):
         pos = ti.Vector([p[0], p[1], p[2]])
         pos = self.confine_position_to_boundary_forward(pos)
-        pos = self.confine_position_to_board_forward(i, pos, pos)
+        # pos = self.confine_position_to_board_forward(i, pos, pos)
         for k in ti.static(range(self.dim)):
             self.positions[frame, i][k] = pos[k]
             self.velocities[frame, i][k] = v[k]
@@ -219,8 +221,8 @@ class HandGradSim3D:
     def emit_particles(self, n, frame, p, v, ages=None):
         for i in range(n):
             if self.num_active[frame] < self.num_particles:
-                offset = np.array([0,0,0])
-                self.place_particle(frame, self.num_active[frame], p[i] + offset, v[i])
+                # offset = np.array([0,0,1])
+                self.place_particle(frame, self.num_active[frame], p[i], v[i])
                 self.particle_active[frame, self.num_active[frame]] = 1
                 if ages is not None:
                     self.particle_age[frame, self.num_active[frame]] = ages[i]
@@ -443,7 +445,7 @@ class HandGradSim3D:
     def gravity_forward(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame-1,i] == 1:
-                g = ti.Vector([0.0, 0.0, -9.81])
+                g = ti.Vector([0.0, -9.81, 0.0])
                 pos, vel = self.positions[frame-1,i], self.velocities[frame-1,i]
                 vel += g * self.delta_t
                 pos += vel * self.delta_t
@@ -845,8 +847,8 @@ class HandGradSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame-1,i] == 1:
                 pos = self.positions_iter[frame,self.pbf_num_iters,i]
-                pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
-                self.positions[frame,i] = self.confine_position_to_boundary_forward(pos_confined_to_board)
+                # pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                self.positions[frame,i] = self.confine_position_to_boundary_forward(pos)
 
     @ti.kernel
     def apply_final_position_deltas_backward(self, frame: ti.i32):
@@ -1040,7 +1042,7 @@ class HandGradSim3D:
         # are assumed to be still active
         self.copy_active(frame)
         # Take some particles out with suction
-        self.apply_suction(frame)
+        # self.apply_suction(frame)
         
 
     def backward_step(self, frame):
@@ -1059,12 +1061,20 @@ class HandGradSim3D:
     def forward(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(1, 0, np.array([[10.0, 10.0]]), np.array([[10.0, 0.0]]))
+            self.emit_particles(2, 0, np.array([[10.0, 10.0, 10.0],[10.0, 10.0, 11.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+        if self.do_save_ply:
+            self.save_ply(0)
+        if self.do_save_npz:
+            self.save_npz(0)
         for i in range(1,self.max_timesteps):
             # self.move_board(i)
             self.step_forward(i)
             if self.do_emit:
-                self.emit_particles(1, i, np.array([10.0, 10.0]), np.array([[10.0, 0.0]]))
+                self.emit_particles(2, i, np.array([[10.0, 10.0, 10.0],[10.0, 10.0, 11.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            if self.do_save_ply:
+                self.save_ply(i)
+            if self.do_save_npz:
+                self.save_npz(i)
         # self.loss[None] = 0
         # self.compute_distances()
         # self.compute_loss_forward()
@@ -1093,31 +1103,19 @@ class HandGradSim3D:
         if self.do_emit:
             self.emit_particles(1, frame, np.array([[10.0, 10.0, 10.0]]), np.array([[10.0, 0.0, 0.0]]))
 
-    @ti.kernel
-    def prepare_tool_vertices(self, frame: ti.i32):
-        # Tool rect, with rotation
-        dims = self.tool_dims[None]
-        center = self.tool_centers[frame]
-        theta = self.tool_thetas[frame]
-        # Tool vertices in tool coordinate
-        topLeft = center + ti.Vector([-1 * dims[0]/2, dims[1]/2])
-        topRight = center + ti.Vector([dims[0]/2, dims[1]/2])
-        botLeft = center + ti.Vector([-1 * dims[0]/2, -1 * dims[1]/2])
-        botRight = center + ti.Vector([dims[0]/2, -1 * dims[1]/2])
-        # Tool vertices in global coordinate, in image scale
-        topLeft_T = self.transform_particle(topLeft, center, theta)
-        topRight_T = self.transform_particle(topRight, center, theta)
-        botLeft_T = self.transform_particle(botLeft, center, theta)
-        botRight_T = self.transform_particle(botRight, center, theta)
-        # Element-wise normalization to image scale
-        for k in ti.static(range(self.dim)):
-            topLeft_T[k] = topLeft_T[k] / self.boundary[k]
-            topRight_T[k] = topRight_T[k] / self.boundary[k]
-            botLeft_T[k] = botLeft_T[k] / self.boundary[k]
-            botRight_T[k] = botRight_T[k] / self.boundary[k]
-        self.tool_vertices[0] = topLeft_T
-        self.tool_vertices[1] = topRight_T
-        self.tool_vertices[2] = botRight_T
-        self.tool_vertices[3] = botLeft_T
+    def save_ply(self,frame):
+        ply_writer = ti.PLYWriter(num_vertices=self.num_active[frame])
+        pos_np = self.positions.to_numpy()[frame,:,:]
+        active_np = self.particle_active.to_numpy()[frame,:]
+        save_inds = active_np == 1
+        ply_writer.add_vertex_pos(pos_np[save_inds, 0], pos_np[save_inds, 1], pos_np[save_inds, 2])
+        series_prefix = "../viz_results/3D/new/ply/frame.ply"
+        ply_writer.export_frame_ascii(frame+1, series_prefix)
+
+    def save_npz(self,frame):
+        arrs = {}
+        arrs["pos"] = self.positions.to_numpy()[frame,:,:]
+        arrs["vel"] = self.velocities.to_numpy()[frame,:,:]
+        np.savez("../viz_results/3D/new/np/frame_{}".format(frame) + ".npz", **arrs)
 
     

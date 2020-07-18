@@ -2,9 +2,22 @@
 
 
 
-### Week of July 13th and July 16th, 2020
+### Week of July 13th and July 17th, 2020
 
 
+#### July 17th
+- Fluid meshing
+    - Extended the new simulation to 3D
+    - OpenVDB [Github](https://github.com/theNewFlesh/docker_pyopenvdb)
+        - This is used in commercial softwares like Houdini or Blender
+        - Based on information from the DeepLagrangianFluids repository, the created meshes are rendered using Blender
+        - Installation on Windows requires Docker which leads to problems
+            - Can't run the start script unless using bash
+            - Bash does not recognize the Python instllations
+        - Trying to use the Linux subsystem on windows to as a work around
+            - No success so far
+        
+        
 
 #### July 16th
 - Suction control
