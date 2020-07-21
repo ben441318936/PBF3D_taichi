@@ -8,6 +8,8 @@
 *.jpg
 *.mtl
 *.npz
+*.npy
+
 
 !new.png
 !simple_comp_graph.jpg

@@ -1,8 +1,36 @@
 ## Work journal
 
 
+### Week of July 20th - July 20th, 2020
+- Fluid meshing
+    - Using marching cubes to create mesh for volume
+        - [PyMCubes](https://github.com/pmneila/PyMCubes)
+            - DLL load fail when importing
+        - [marching_cubes](https://github.com/ilastik/marching_cubes)
+            - Package only works for Linux or OSX 
+            - Using Linux subsystem on Windows to run this package
+            - Basic pipline is
+                1. Data generation, particle positions are stored in Numpy arrays
+                2. Post-processing using Gaussian filter to create a volume
+                3. Mesh generation using marching cubes
+            - Some decent meshing results, first exp sigma=3, threshold=max/5, second exp sigma=3, threshold=max/8 (lower threshold, larger the mesh)
+                - PyQt OpenGL renders
 
-### Week of July 13th and July 17th, 2020
+                    ![qt_mesh1](dev/meshing/exp1/qt_mesh.png)
+
+                    ![qt_mesh2](dev/meshing/exp2/qt_mesh.png)
+
+                - PyRender 
+
+                    ![pyrender_mesh1](dev/meshing/exp1/pyrender_mesh.png)
+
+                    ![pyrender_mesh2](dev/meshing/exp2/pyrender_mesh.png)
+
+                - PyRender seems to have some problem with the mesh generate, but both are based on OpenGL, might be differences in the default shaders used
+
+
+
+### Week of July 13th - July 17th, 2020
 
 
 #### July 17th

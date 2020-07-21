@@ -6,7 +6,7 @@ ti.init(arch=ti.gpu)
 
 @ti.data_oriented
 class HandGradSim3D:
-    def __init__(self, max_timesteps=10, num_particles=10, do_emit=False, do_save_ply=False, do_save_npz=False):
+    def __init__(self, max_timesteps=10, num_particles=10, do_emit=False, do_save_ply=False, do_save_npy=False, do_save_npz=False):
 
         self.dim = 3
         self.delta_t = 1.0 / 20.0
@@ -16,6 +16,7 @@ class HandGradSim3D:
         self.do_emit = do_emit
         self.do_save_ply = do_save_ply
         self.do_save_npz = do_save_npz
+        self.do_save_npy = do_save_npy
 
         self.boundary = np.array([40.0, 40.0, 20.0])
 
@@ -1066,6 +1067,8 @@ class HandGradSim3D:
             self.save_ply(0)
         if self.do_save_npz:
             self.save_npz(0)
+        if self.do_save_npy:
+            self.save_npy(0)
         for i in range(1,self.max_timesteps):
             # self.move_board(i)
             self.step_forward(i)
@@ -1075,6 +1078,8 @@ class HandGradSim3D:
                 self.save_ply(i)
             if self.do_save_npz:
                 self.save_npz(i)
+            if self.do_save_npy:
+                self.save_npy(i)
         # self.loss[None] = 0
         # self.compute_distances()
         # self.compute_loss_forward()
@@ -1116,6 +1121,9 @@ class HandGradSim3D:
         arrs = {}
         arrs["pos"] = self.positions.to_numpy()[frame,:,:]
         arrs["vel"] = self.velocities.to_numpy()[frame,:,:]
-        np.savez("../viz_results/3D/new/np/frame_{}".format(frame) + ".npz", **arrs)
+        np.savez("../viz_results/3D/new/npz/frame_{}".format(frame) + ".npz", **arrs)
+
+    def save_npy(self,frame):
+        np.save("../viz_results/3D/new/npy/frame_{}".format(frame) + ".npy", self.positions.to_numpy()[frame,:,:])
 
     

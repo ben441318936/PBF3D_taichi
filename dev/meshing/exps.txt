@@ -1,0 +1,2 @@
+1: sigma=3, thresh=1/5
+2: sigma=3, thresh=1/8
