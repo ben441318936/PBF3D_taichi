@@ -1,19 +1,38 @@
 ## Work journal
 
 
-### Week of July 20th - July 20th, 2020
+### Week of July 20th - July 21st, 2020
+
+
+
+#### July 21st
+- Fluid meshing
+    - Marching cubes
+        - [Skimage marching cube](https://scikit-image.org/docs/stable/auto_examples/edges/plot_marching_cubes.html)
+            - Doesn't have smoothing like ilastik, so the surface shading is not as good
+            - Prelim results, sigma=3, threshold=max/5
+                - PyQt OpenGL renders
+
+                    ![qt_mesh](dev/meshing/exp3/qt_mesh.png)
+
+                - PyRender
+
+                    ![pyrender_mesh](dev/meshing/exp3/pyrender_mesh.png)
+
+
+#### July 20th
 - Fluid meshing
     - Using marching cubes to create mesh for volume
+        - Basic pipline is
+            1. Data generation, particle positions are stored in Numpy arrays
+            2. Post-processing using Gaussian filter to create a volume
+            3. Mesh generation using marching cubes
         - [PyMCubes](https://github.com/pmneila/PyMCubes)
             - DLL load fail when importing
-        - [marching_cubes](https://github.com/ilastik/marching_cubes)
+        - [ilastik marching_cubes](https://github.com/ilastik/marching_cubes)
             - Package only works for Linux or OSX 
             - Using Linux subsystem on Windows to run this package
-            - Basic pipline is
-                1. Data generation, particle positions are stored in Numpy arrays
-                2. Post-processing using Gaussian filter to create a volume
-                3. Mesh generation using marching cubes
-            - Some decent meshing results, first exp sigma=3, threshold=max/5, second exp sigma=3, threshold=max/8 (lower threshold, larger the mesh)
+            - Some decent meshing results, first exp sigma=3, threshold=max/5, second exp sigma=3, threshold=max/8 (lower threshold, larger the mesh); all exps use 4 smoothing rounds
                 - PyQt OpenGL renders
 
                     ![qt_mesh1](dev/meshing/exp1/qt_mesh.png)

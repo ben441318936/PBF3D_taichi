@@ -30,7 +30,7 @@ import time
 # while v.is_active:
 #     pass
 
-exp = 2
+exp = 3
 
 prefix = "./meshing/exp{}/".format(exp)
 
