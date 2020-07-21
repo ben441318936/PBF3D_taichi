@@ -30,23 +30,24 @@ import time
 # while v.is_active:
 #     pass
 
-exp = 3
+exp = 2
 
 prefix = "./meshing/exp{}/".format(exp)
 
 scene = pyrender.Scene()
 
-vertices = np.load(prefix+"vertices.npy")
+vertices = np.load(prefix+"vertices.npy") / 100
 faces = np.load(prefix+"faces.npy")
 face_normals = np.load(prefix+"normals.npy")
 tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=face_normals)
 tm.visual.vertex_colors = np.zeros(shape=(tm.vertices.shape[0],4))
-tm.visual.vertex_colors[:,1] = 255
+tm.visual.vertex_colors[:,0] = 255
 tm.visual.vertex_colors[:,3] = 255
+
 m = pyrender.Mesh.from_trimesh(tm)
 
 scene.add(m)
 
-v = pyrender.Viewer(scene, use_raymond_lighting=True)
+v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False)
 
 

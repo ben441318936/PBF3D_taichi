@@ -19,6 +19,13 @@
 
                     <img src="dev/meshing/exp3/pyrender_mesh.png" width="350" />
 
+    - PyRender fix
+        - PyRender had visualization problems because back-face culling was on
+        - This probably created artifacts because the mesh is not closed
+        - Turning off BFC fixes the problem
+
+            <img src="dev/meshing/exp2/pyrender_mesh_2.png" width="350" />
+
 
 #### July 20th
 - Fluid meshing
