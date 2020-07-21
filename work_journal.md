@@ -13,11 +13,11 @@
             - Prelim results, sigma=3, threshold=max/5
                 - PyQt OpenGL renders
 
-                    ![qt_mesh](dev/meshing/exp3/qt_mesh.png)
+                    <img src="dev/meshing/exp3/qt_mesh.png" width="350" />
 
                 - PyRender
 
-                    ![pyrender_mesh](dev/meshing/exp3/pyrender_mesh.png)
+                    <img src="dev/meshing/exp3/pyrender_mesh.png" width="350" />
 
 
 #### July 20th
@@ -35,17 +35,17 @@
             - Some decent meshing results, first exp sigma=3, threshold=max/5, second exp sigma=3, threshold=max/8 (lower threshold, larger the mesh); all exps use 4 smoothing rounds
                 - PyQt OpenGL renders
 
-                    ![qt_mesh1](dev/meshing/exp1/qt_mesh.png)
+                    <img src="dev/meshing/exp1/qt_mesh.png" width="350" />
 
-                    ![qt_mesh2](dev/meshing/exp2/qt_mesh.png)
+                    <img src="dev/meshing/exp2/qt_mesh.png" width="350" />
 
                 - PyRender 
 
-                    ![pyrender_mesh1](dev/meshing/exp1/pyrender_mesh.png)
+                    <img src="dev/meshing/exp1/pyrender_mesh.png" width="350" />
 
-                    ![pyrender_mesh2](dev/meshing/exp2/pyrender_mesh.png)
+                    <img src="dev/meshing/exp2/pyrender_mesh.png" width="350" />
 
-                - PyRender seems to have some problem with the mesh generate, but both are based on OpenGL, might be differences in the default shaders used
+                - PyRender seems to have some problem with the mesh generated, but both are based on OpenGL, might be differences in the default shaders used
 
 
 
