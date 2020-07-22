@@ -31,7 +31,7 @@
         - Can pad the environment by one unit so marching cubes will close the surface
         - PyQt renders
 
-            <img src="dev/meshing/exp5/qt_mesh.png" width="350" />
+            <img src="dev/meshing/exp5/qt_mesh_1.png" width="350" />
 
             <img src="dev/meshing/exp5/qt_mesh_2.png" width="350" />
 
