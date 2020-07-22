@@ -1,12 +1,10 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-
 from skimage import measure
-
 from scipy.ndimage import gaussian_filter
+import trimesh
+import pyrender
 
-exp = 3
+exp = 4
 prefix = "./meshing/exp{}/".format(exp)
 
 boundary = np.array([40.0, 40.0, 40.0])
@@ -29,30 +27,23 @@ smooth_env = gaussian_filter(env, sigma=3)
 smooth_env[smooth_env > np.max(smooth_env)/5] = 1
 print(smooth_env.shape)
 
-# Use marching cubes to obtain the surface mesh of these ellipsoids
-verts, faces, normals, values = measure.marching_cubes(smooth_env, 0.5)
+padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
+print(padded_env.shape)
 
-np.save(prefix+"vertices.npy", verts)
+# Use marching cubes to obtain the surface mesh of these ellipsoids
+vertices, faces, normals, values = measure.marching_cubes(padded_env, 0.5)
+
+np.save(prefix+"vertices.npy", vertices)
 np.save(prefix+"normals.npy", normals)
 np.save(prefix+"faces.npy", faces)
 
-# # Display resulting triangular mesh using Matplotlib. This can also be done
-# # with mayavi (see skimage.measure.marching_cubes_lewiner docstring).
-# fig = plt.figure(figsize=(10, 10))
-# ax = fig.add_subplot(111, projection='3d')
+tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
+tm.visual.vertex_colors = np.zeros(shape=(tm.vertices.shape[0],4))
+tm.visual.vertex_colors[:,0] = 255
+tm.visual.vertex_colors[:,3] = 255
 
-# # Fancy indexing: `verts[faces]` to generate a collection of triangles
-# mesh = Poly3DCollection(verts[faces])
-# mesh.set_edgecolor('k')
-# ax.add_collection3d(mesh)
+m = pyrender.Mesh.from_trimesh(tm)
 
-# ax.set_xlabel("x-axis: a = 6 per ellipsoid")
-# ax.set_ylabel("y-axis: b = 10")
-# ax.set_zlabel("z-axis: c = 16")
-
-# ax.set_xlim(0, 24)  # a = 6 (times two for 2nd ellipsoid)
-# ax.set_ylim(0, 20)  # b = 10
-# ax.set_zlim(0, 32)  # c = 16
-
-# plt.tight_layout()
-# plt.show()
+scene = pyrender.Scene()
+scene.add(m)
+v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False)

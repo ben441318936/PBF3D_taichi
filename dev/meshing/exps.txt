@@ -4,6 +4,8 @@ Sigma and thresh refers to the Gaussian smoothing of particle positions
 Ilastik marching cubes
 1: sigma=3, thresh=1/5, 4 smoothing rounds
 2: sigma=3, thresh=1/8, 4 smoothing rounds
+5: sigma=3, thresh=1/8, 4 smoothing rounds, edge padding
 
 Skimage marching cubes
 3. sigma=3, thresh=1/5
+4. sigma=3, thresh=1/5, edge padding for closed surface

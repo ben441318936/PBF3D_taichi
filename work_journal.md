@@ -26,6 +26,29 @@
 
             <img src="dev/meshing/exp2/pyrender_mesh_2.png" width="350" />
 
+    - Closed surface
+        - Mesh surfaces are not closed when they are on the edge of the environment
+        - Can pad the environment by one unit so marching cubes will close the surface
+        - PyQt renders
+
+            <img src="dev/meshing/exp5/qt_mesh.png" width="350" />
+
+            <img src="dev/meshing/exp5/qt_mesh_2.png" width="350" />
+
+        - PyRender
+
+            <img src="dev/meshing/exp5/pyrender_mesh_1.png" width="350" />
+
+            <img src="dev/meshing/exp5/pyrender_mesh_2.png" width="350" />
+
+    - Point cloud and mesh comparison, first is point cloud based on particle position, second is PyRender of ilastik marching cubes
+
+        <img src="dev/meshing/exp5/point_cloud.png" width="350" />
+
+        <img src="dev/meshing/exp5/pyrender_mesh_1.png" width="350" />
+
+
+
 
 #### July 20th
 - Fluid meshing

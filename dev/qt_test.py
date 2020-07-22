@@ -8,7 +8,7 @@ from PyQt5.QtGui import QApplication
 app = QApplication([])
 view = GLViewWidget()
 
-exp = 3
+exp = 5
 prefix = "./meshing/exp{}/".format(exp)
 
 vertices = np.load(prefix+"vertices.npy")

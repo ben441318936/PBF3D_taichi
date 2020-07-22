@@ -6,7 +6,7 @@ from scipy.ndimage import gaussian_filter
 
 from PIL import Image
 
-exp = 2
+exp = 5
 
 boundary = np.array([40.0, 40.0, 40.0])
 
@@ -27,6 +27,9 @@ for i in range(inds.shape[0]):
 smooth_env = gaussian_filter(env, sigma=3)
 smooth_env[smooth_env > np.max(smooth_env)/8] = 1
 print(smooth_env.shape)
+
+padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
+print(padded_env.shape)
 
 # Check discretization results with a cross section view
 img_np = np.zeros((rounded_dims[0], rounded_dims[1], 3))
@@ -60,4 +63,4 @@ s = "./meshing/exp{}/side_view.png".format(exp)
 image.save(s)
 
 # Save volume as numpy array
-np.save("./meshing/exp{}/volume.npy".format(exp), smooth_env)
+np.save("./meshing/exp{}/volume.npy".format(exp), padded_env)
