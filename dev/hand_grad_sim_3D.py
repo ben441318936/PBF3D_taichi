@@ -18,7 +18,7 @@ class HandGradSim3D:
         self.do_save_npz = do_save_npz
         self.do_save_npy = do_save_npy
 
-        self.boundary = np.array([40.0, 40.0, 20.0])
+        self.boundary = np.array([20.0, 20.0, 20.0])
 
         self.cell_size = 2.51
         self.cell_recpr = 1.0 / self.cell_size
@@ -1124,6 +1124,9 @@ class HandGradSim3D:
         np.savez("../viz_results/3D/new/npz/frame_{}".format(frame) + ".npz", **arrs)
 
     def save_npy(self,frame):
-        np.save("../viz_results/3D/new/npy/frame_{}".format(frame) + ".npy", self.positions.to_numpy()[frame,:,:])
+        pos = self.positions.to_numpy()[frame,:,:]
+        active = self.particle_active.to_numpy()[frame,:]
+        inds = active == 1
+        np.save("../viz_results/3D/new/npy/frame_{}".format(frame) + ".npy", pos[inds,:])
 
     

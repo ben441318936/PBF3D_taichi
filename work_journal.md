@@ -1,8 +1,20 @@
 ## Work journal
 
 
-### Week of July 20th - July 21st, 2020
+### Week of July 20th - July 22nd, 2020
 
+
+
+#### July 22nd
+- Fluid meshing
+    - Marching cubes
+        - We can get smooth meshes by using a smooth volume embedding, this means we don't do thresholding after the Gaussian smoothing
+        - Then Skimage MC can generate smooth meshes as well, and the whole pipeline can run on Windows
+    - PyRender
+        - Animation rendering works, but pretty slow, need to speed up volume generation
+            - Testing with a smaller volume for now
+        - How to record gif in PyRender? The built-in key doesn't seem to be working
+        - How to set proper camera angle
 
 
 #### July 21st
