@@ -1,12 +1,16 @@
 import taichi as ti
 import numpy as np
 import math
+from skimage import measure
+from scipy.ndimage import gaussian_filter
+import trimesh
+import pyrender
 
 ti.init(arch=ti.gpu)
 
 @ti.data_oriented
 class HandGradSim3D:
-    def __init__(self, max_timesteps=10, num_particles=10, do_emit=False, do_save_ply=False, do_save_npy=False, do_save_npz=False):
+    def __init__(self, max_timesteps=10, num_particles=10, do_emit=False, do_save_ply=False, do_save_npy=False, do_save_npz=False, do_render=False):
 
         self.dim = 3
         self.delta_t = 1.0 / 20.0
@@ -17,6 +21,7 @@ class HandGradSim3D:
         self.do_save_ply = do_save_ply
         self.do_save_npz = do_save_npz
         self.do_save_npy = do_save_npy
+        self.do_render = do_render
 
         self.boundary = np.array([20.0, 20.0, 20.0])
 

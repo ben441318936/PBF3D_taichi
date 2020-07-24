@@ -1,7 +1,14 @@
 ## Work journal
 
 
-### Week of July 20th - July 22nd, 2020
+### Week of July 20th - July 23rd, 2020
+
+
+
+#### July 23rd
+- Fluid meshing
+    - PyRender
+        - Fixed issue with the mesh being in the wrong orientation during render
 
 
 
