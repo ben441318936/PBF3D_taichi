@@ -9,6 +9,7 @@
 *.mtl
 *.npz
 *.npy
+test.gif
 
 
 !new.png

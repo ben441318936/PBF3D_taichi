@@ -9,6 +9,10 @@
 - Fluid meshing
     - PyRender
         - Fixed issue with the mesh being in the wrong orientation during render
+        - Importing meshing utilities in the simulation class file causes numpy problems, consider importing outside and passing in neccesary functions
+        - GIF saving using PyRender viewer is based on screen recording, this means the GIF includes the delay in the processing and it is not smooth, consider using headless rendering for better visualization
+        - PyRender stuff is lower priority now
+    - Next step focus on incoporating volume information into controls
 
 
 
