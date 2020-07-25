@@ -1,7 +1,14 @@
 ## Work journal
 
 
-### Week of July 20th - July 23rd, 2020
+### Week of July 20th - July 24th, 2020
+
+
+
+#### July 24th
+- Blood sim and render
+    - Created new scene with deep cavity and fluids emitting from the bottom
+    - Recorded data with multiple emission speeds
 
 
 
