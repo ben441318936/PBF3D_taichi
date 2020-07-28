@@ -1,15 +1,31 @@
 ## Work journal
 
 
-### Week of July 20th - July 24th, 2020
 
+### Week of July 27th - July 27th, 2020
+
+
+#### July 27th
+- Suction control
+    - Implementing previous MPC routines for 3D simulation
+    - Started work on improving the formulation
+        - Might be more optimal to move the end effector to the area with highest volume value, which should reflect the largest cluster of fluid
+        - Begin work on a formulation that does not explicitly move the end effector position
+            - This was based on human intuition of moving the tool towards the blood, which maybe not be globally optimal
+            - Taking inspiration from grid-based simulations, we can think of suction as actuation applied to the grid
+            - By using forces to move the particles to some dummy target location, we can get a differentiable suction process, instead of deleting particles
+            - With better defined target states, we can optimize following established fluid MPC routines
+
+
+
+
+### Week of July 20th - July 24th, 2020
 
 
 #### July 24th
 - Blood sim and render
     - Created new scene with deep cavity and fluids emitting from the bottom
     - Recorded data with multiple emission speeds
-
 
 
 #### July 23rd
@@ -20,7 +36,6 @@
         - GIF saving using PyRender viewer is based on screen recording, this means the GIF includes the delay in the processing and it is not smooth, consider using headless rendering for better visualization
         - PyRender stuff is lower priority now
     - Next step focus on incoporating volume information into controls
-
 
 
 #### July 22nd
@@ -76,8 +91,6 @@
         <img src="dev/meshing/exp5/point_cloud.png" width="350" />
 
         <img src="dev/meshing/exp5/pyrender_mesh_1.png" width="350" />
-
-
 
 
 #### July 20th

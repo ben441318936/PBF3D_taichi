@@ -30,7 +30,11 @@ initial_vel0 = np.array([10.0, 0.0, 0.0])
 
 # board_states = iter_states["iter1000"]
 
-sim.initialize()
+board_states = np.zeros((200, 3))
+for i in range(200):
+    board_states[i,:] = np.array([0, 0, 20])
+
+sim.initialize(board_states=board_states)
 
 # init_pos_path = "./states/init_pos.obj"
 # with open(init_pos_path, "rb") as f:

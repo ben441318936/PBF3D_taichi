@@ -18,7 +18,7 @@ v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_t
 
 print("Viewport size:", v.viewport_size)
 
-for k in range(300):
+for k in range(0,199):
     if not v.is_active:
         break
 
@@ -69,9 +69,9 @@ for k in range(300):
 
 print("Animation done")
 
-v.close_external()
+# v.close_external()
 
 while v.is_active:
     pass
 
-v.save_gif("./test.gif")
+# v.save_gif("./test.gif")
