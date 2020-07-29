@@ -1019,7 +1019,7 @@ class HandGradSim3D:
     def forward(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(3, 0, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            self.emit_particles(3, 0, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 5.0],[10.0, 0.0, 5.0],[10.0, 0.0, 5.0]]))
         if self.do_save_ply:
             self.save_ply(0)
         if self.do_save_npz:
@@ -1030,7 +1030,7 @@ class HandGradSim3D:
             # self.move_board(i)
             self.step_forward(i)
             if self.do_emit:
-                self.emit_particles(3, i, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+                self.emit_particles(3, i, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 5.0],[10.0, 0.0, 5.0],[10.0, 0.0, 5.0]]))
             if self.do_save_ply:
                 self.save_ply(i)
             if self.do_save_npz:
@@ -1052,7 +1052,7 @@ class HandGradSim3D:
     def init_step(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(3, 0, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            self.emit_particles(3, 0, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 5.0],[10.0, 0.0, 5.0],[10.0, 0.0, 5.0]]))
         if self.do_save_npy:
             self.save_npy(0)
 
@@ -1080,7 +1080,7 @@ class HandGradSim3D:
         self.move_board(frame, tool_pos)
         self.step_forward(frame)
         if self.do_emit:
-            self.emit_particles(3, frame, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            self.emit_particles(3, frame, np.array([[10.0, 1.0, 10.0],[10.0, 1.0, 11.0],[10.0, 1.0, 9.0]]), np.array([[10.0, 0.0, 5.0],[10.0, 0.0, 5.0],[10.0, 0.0, 5.0]]))
         if self.do_save_npy:
             self.save_npy(frame)
 
@@ -1103,6 +1103,9 @@ class HandGradSim3D:
         pos = self.positions.to_numpy()[frame,:,:]
         active = self.particle_active.to_numpy()[frame,:]
         inds = active == 1
-        np.save("../viz_results/3D/new/npy/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_tool/exp3/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+
+        tool_pos = self.board_states.to_numpy()[frame,:]
+        np.save("../viz_results/3D/new_tool/exp3/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
