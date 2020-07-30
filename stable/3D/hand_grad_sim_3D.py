@@ -61,7 +61,6 @@ class HandGradSim3D:
 
         self.positions = ti.Vector(self.dim, ti.f32)
         self.positions_after_grav = ti.Vector(self.dim, ti.f32)
-        self.positions_after_grav_confined = ti.Vector(self.dim, ti.f32)
         self.positions_iter = ti.Vector(self.dim, ti.f32)
 
         self.velocities = ti.Vector(self.dim, ti.f32)
@@ -98,7 +97,6 @@ class HandGradSim3D:
     def place_vars(self):
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions, self.velocities)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions_after_grav)
-        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions_after_grav_confined)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.pbf_num_iters+1).dense(ti.k, self.num_particles).place(self.positions_iter)
 
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.distance_matrix)
@@ -166,7 +164,6 @@ class HandGradSim3D:
     def initialize(self, board_states=None, tool_centers=None, tool_thetas=None):
         self.positions.fill(0.0)
         self.positions_after_grav.fill(0.0)
-        self.positions_after_grav_confined.fill(0.0)
         self.positions_iter.fill(0.0)
         self.velocities.fill(0.0)
         self.lambdas.fill(0.0)
@@ -197,7 +194,6 @@ class HandGradSim3D:
     def clear_global_grads(self):
         self.positions.grad.fill(0.0)
         self.positions_after_grav.grad.fill(0.0)
-        self.positions_after_grav_confined.grad.fill(0.0)
         self.positions_iter.grad.fill(0.0)
         self.velocities.grad.fill(0.0)
         self.lambdas.grad.fill(0.0)
@@ -250,9 +246,9 @@ class HandGradSim3D:
     def confine_position_to_boundary_backward(self, p):
         # Global boundaries
         bmin = self.particle_radius
-        bmax = ti.Vector([self.boundary[0], self.boundary[1], self.boundary[2]]) - self.particle_radius
+        bmax = ti.Vector([self.boundary[0], self.boundary[1]]) - self.particle_radius
 
-        jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        jacobian = ti.Matrix([[1.0, 0.0], [0.0, 1.0]])
 
         for i in ti.static(range(self.dim)):
             if p[i] <= bmin or p[i] >= bmax[i]:
@@ -260,9 +256,129 @@ class HandGradSim3D:
 
         return jacobian
 
+    @ti.func
+    def translate(self, p, c):
+        return p + c
 
     @ti.func
-    def confine_position_to_board_forward(self, frame, p1):
+    def rotate(self, p, theta):
+        new_p = ti.Vector([0.0, 0.0])
+        new_p[0] = p[0] * ti.cos(theta) - p[1] * ti.sin(theta)
+        new_p[1] = p[0] * ti.sin(theta) + p[1] * ti.cos(theta)
+        return new_p
+
+    @ti.func
+    def transform_particle(self, p, c, theta):
+        p = self.translate(p, -1*c)
+        p = self.rotate(p, theta)
+        p = self.translate(p, c)
+        return p
+
+    @ti.func
+    def confine_position_to_tool_forward(self, frame, p):
+        center = self.tool_centers[frame]
+        theta = self.tool_thetas[frame]
+        dims = self.tool_dims[None]
+
+        p_trans = self.transform_particle(p, center, -1 * theta)
+
+        left = center[0] - dims[0]/2
+        right = center[0] + dims[0]/2
+        bot = center[1] - dims[1]/2
+        top = center[1] + dims[1]/2
+
+        p_proj = ti.Vector([p_trans[0], p_trans[1]])
+
+        # If particle is in the interior of the board rect
+        if p_trans[0] >= left and p_trans[0] <= right and p_trans[1] >= bot and p_trans[1] <= top:
+
+            d = ti.Vector([0.0, 0.0, 0.0, 0.0])
+            d[0] = ti.abs(p_trans[0] - left)
+            d[1] = ti.abs(p_trans[0] - right)
+            d[2] = ti.abs(p_trans[1] - bot)
+            d[3] = ti.abs(p_trans[1] - top)
+
+            min_d = d[0]
+            ind = 0
+
+            for k in ti.static(range(4)):
+                if d[k] < min_d:
+                    ind = k
+
+            if ind == 0:
+                p_proj[0] = left - self.epsilon * ti.random()
+            elif ind == 1:
+                p_proj[0] = right + self.epsilon * ti.random()
+            elif ind == 2:
+                p_proj[1] = bot - self.epsilon * ti.random()
+            else:
+                p_proj[1] = top + self.epsilon * ti.random()
+        
+        p_proj = self.transform_particle(p_proj, center, theta)
+
+        return p_proj
+
+    @ti.func
+    def confine_position_to_tool_backward(self, frame, p):
+        center = self.tool_centers[frame]
+        theta = self.tool_thetas[frame]
+        dims = self.tool_dims[None]
+
+        p_trans = self.transform_particle(p, center, -1 * theta)
+
+        left = center[0] - dims[0]/2
+        right = center[0] + dims[0]/2
+        bot = center[1] - dims[1]/2
+        top = center[1] + dims[1]/2
+
+        jacobian_p = ti.Matrix([[1.0, 0.0], [0.0, 1.0]])
+
+        # If particle is in the interior of the board rect
+        if p_trans[0] >= left and p_trans[0] <= right and p_trans[1] >= bot and p_trans[1] <= top:
+
+            d = ti.Vector([0.0, 0.0, 0.0, 0.0])
+            d[0] = p_trans[0] - left
+            d[1] = p_trans[0] - right
+            d[2] = p_trans[1] - bot
+            d[3] = p_trans[1] - top
+
+            min_d = ti.abs(d[0])
+            ind = 0
+
+            for k in ti.static(range(4)):
+                if ti.abs(d[k]) < ti.abs(min_d):
+                    ind = k
+
+            sign = 1
+            if d[ind] < 0:
+                sign = -1
+
+            if ind == 0:
+                n = ti.Vector([-1, 0])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]], 
+                                        [sign*ti.sin(theta)*n[0],    sign*ti.sin(theta)*n[1]])
+            elif ind == 1:
+                n = ti.Vector([1, 0])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]], 
+                                        [sign*ti.sin(theta)*n[0],    sign*ti.sin(theta)*n[1]])
+            elif ind == 2:
+                n = ti.Vector([0, -1])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.sin(theta)*n[0], sign*-1*ti.sin(theta)*n[1]], 
+                                        [sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]])
+            else:
+                n = ti.Vector([0, 1])
+                n = self.rotate(n, theta)
+                jacobian_p += ti.Matrix([sign*-1*ti.sin(theta)*n[0], sign*-1*ti.sin(theta)*n[1]], 
+                                        [sign*-1*ti.cos(theta)*n[0], sign*-1*ti.cos(theta)*n[1]])
+
+        return jacobian_p
+
+
+    @ti.func
+    def confine_position_to_board_forward(self, frame, p0, p1):
         board_left = self.board_states[frame][0]
         board_right = self.board_states[frame][0] + self.board_dims[None][0]
         board_bot = self.board_states[frame][1]
@@ -306,48 +422,37 @@ class HandGradSim3D:
         return p_proj
 
     @ti.func
-    def confine_position_to_board_backward(self, frame, p1):
+    def confine_position_to_board_backward(self, frame, p0, p1):
         board_left = self.board_states[frame][0]
         board_right = self.board_states[frame][0] + self.board_dims[None][0]
         board_bot = self.board_states[frame][1]
         board_top = self.board_states[frame][1] + self.board_dims[None][1]
-        board_front = self.board_states[frame][2]
-        board_back = self.board_states[frame][2] - self.board_dims[None][2]
 
-        jacobian_p = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        old_board_left = self.board_states[frame-1][0]
+        old_board_right = self.board_states[frame-1][0] + self.board_dims[None][0]
+        old_board_bot = self.board_states[frame-1][1]
+        old_board_top = self.board_states[frame-1][1] + self.board_dims[None][1]
+
+        jacobian_p = ti.Matrix([[1.0, 0.0], [0.0, 1.0]])
+        jacobian_b = ti.Matrix([[0.0, 0.0], [0.0, 0.0]])
 
         # If particle is in the interior of the board rect
-        if p1[0] >= board_left and p1[0] <= board_right and p1[1] >= board_bot and p1[1] <= board_top and p1[2] <= board_front and p1[2] >= board_back:
-            # Regular projection, the projection is based on the closest face to the particle
-            d = ti.Vector([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            d[0] = ti.abs(p1[0] - board_left)
-            d[1] = ti.abs(p1[0] - board_right)
-            d[2] = ti.abs(p1[1] - board_bot)
-            d[3] = ti.abs(p1[1] - board_top)
-            d[4] = ti.abs(p1[2] - board_front)
-            d[5] = ti.abs(p1[2] - board_back)
-
-            min_d = d[0]
-            ind = 0
-
-            for k in ti.static(range(6)):
-                if d[k] < min_d:
-                    ind = k
-
-            if ind == 0:
+        if p1[0] >= board_left and p1[0] <= board_right and p1[1] >= board_bot and p1[1] <= board_top:
+            # Regular projection, the projection is based on particle's previous location
+            if p0[0] <= old_board_left + 0.5:
                 jacobian_p[0,0] = 0
-            elif ind == 1:
+                jacobian_b[0,0] = 1
+            elif p0[0] >= old_board_right - 0.5:
                 jacobian_p[0,0] = 0
-            elif ind == 2:
+                jacobian_b[0,0] = 1
+            if p0[1] <= old_board_bot + 0.1:
                 jacobian_p[1,1] = 0
-            elif ind == 3:
+                jacobian_b[1,1] = 1
+            elif p0[1] >= old_board_top - 0.1:
                 jacobian_p[1,1] = 0
-            elif ind == 5:
-                jacobian_p[2,2] = 0
-            else:
-                jacobian_p[2,2] = 0
+                jacobian_b[1,1] = 1
 
-        return jacobian_p
+        return jacobian_p, jacobian_b
 
             
     @ti.kernel
@@ -359,97 +464,82 @@ class HandGradSim3D:
                 vel += g * self.delta_t
                 pos += vel * self.delta_t
                 self.positions_after_grav[frame,i] = pos
-                self.positions_after_grav_confined[frame,i] = self.confine_position_to_boundary_forward(pos)
+                # The position info going into the solver iterations is the confined version
+                positions_after_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                # positions_after_board = self.confine_position_to_tool_forward(frame, pos)
+                self.positions_iter[frame,0,i] = self.confine_position_to_boundary_forward(positions_after_board)
 
     @ti.kernel
     def gravity_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame-1,i] == 1:
                 pos = self.positions_after_grav[frame, i]
-                jacobian_bounds = self.confine_position_to_boundary_backward(pos)
-                self.positions.grad[frame-1,i] += jacobian_bounds @ self.positions_after_grav_confined.grad[frame,i]
-                self.velocities.grad[frame-1,i] += jacobian_bounds @ self.positions_after_grav_confined.grad[frame,i] * self.delta_t
-
+                pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                jacobian_bounds = self.confine_position_to_boundary_backward(pos_confined_to_board)
+                jacobian_board, jacobian_to_board_states = self.confine_position_to_board_backward(frame, self.positions[frame-1,i], pos)
+                # positions and velocities contributes to positions_after_grav, so it needs component-wise gating
+                self.positions.grad[frame-1,i] += jacobian_board @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
+                self.velocities.grad[frame-1,i] += jacobian_board @ jacobian_bounds @ self.positions_iter.grad[frame,0,i] * self.delta_t
+                # g = jacobian_to_board_states @ jacobian_bounds @ self.positions_iter.grad[frame,0,i]
+                # c = 1
+                # for k in ti.static(range(self.dim)):
+                #     if g[k] > c:
+                #         g[k] = c
+                #     elif g[k] < -c:
+                #         g[k] = -c
+                # self.board_states.grad[frame] += g
 
     @ti.kernel
-    def apply_suction_forward(self, frame: ti.i32):
+    def apply_suction(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame-1,i] == 1:
-                pos_i = self.positions_after_grav_confined[frame,i]
+            if self.particle_active[frame,i] == 1:
+                pos_i = self.positions[frame,i]
 
-                board_states = ti.static(self.board_states[frame])
-                dims = ti.static(self.board_dims[None])
+                board_left = self.board_states[frame][0]
+                board_right = self.board_states[frame][0] + self.board_dims[None][0]
+                board_bot = self.board_states[frame][1]
+                board_top = self.board_states[frame][1] + self.board_dims[None][1]
+                board_front = self.board_states[frame][2]
+                board_back = self.board_states[frame][2] - self.board_dims[None][2]
 
-                board_left = board_states[0]
-                board_right = board_states[0] + dims[0]
-                board_bot = board_states[1]
-                board_top = board_states[1] + dims[1]
-                board_front = board_states[2]
-                board_back = board_states[2] - dims[2]
-                board_center = board_states + ti.Vector([1*dims[0]/2, -0.5, -1*dims[2]/2])
+                # If particle is within some area, take it out of simulation
+                if pos_i[0] >= board_left-0.5 and pos_i[0] <= board_right+0.5 and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+0.5 and pos_i[2] >= board_back-0.5:
+                    self.particle_active[frame,i] = 2
+                    self.num_suctioned[frame] += 1
+                # else increase its age by 1
+                else:
+                    self.particle_age[frame,i] += 1
+            # if self.particle_active[frame,i] == 1:
+            #     pos_i = self.positions[frame,i]
 
-                # If particle is within some area, apply force to it
-                # Check for outer bounds
-                if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
-                    pos_delta = ti.Vector([0.0, 0.0, 0.0])
-                    # Check for innner bounds
-                    # This is the field that pulls particles close
-                    if ((pos_i[0] < board_left or pos_i[0] > board_right) or (pos_i[2] > board_front or pos_i[2] < board_back)) or (pos_i[1] < board_bot):
-                        tmp = board_center - pos_i
-                        unit = tmp / tmp.norm()
-                        pos_delta += unit * 1 / (tmp.norm()**2 + 0.5) # Max is 0.5x of the unit vector
-                    # This is the field that pulls particles vertically up when they are inside
-                    if pos_i[0] > board_left and pos_i[0] < board_right and pos_i[2] < board_front and pos_i[2] > board_back and pos_i[1] > board_bot:
-                        pos_delta += ti.Vector([0.0, 1.0, 0.0]) * 100
-                        # No longer interact with other particles
-                        self.particle_active[frame,i] = 2
-                        self.num_suctioned[frame] += 1
-                    self.positions_iter[frame,0,i] = pos_i + pos_delta
+            #     center = self.tool_centers[frame]
+            #     theta = self.tool_thetas[frame]
+            #     dims = self.tool_dims[None]
 
-    # This backward will propagate back to particle position and to tool position
-    @ti.kernel
-    def apply_suction_backward(self, frame: ti.i32):
-        for i in range(self.num_particles):
-            if self.particle_active[frame-1,i] == 1:
-                pos_i = self.positions_after_grav_confined[frame,i]
+            #     left = center[0] - dims[0]/2
+            #     right = center[0] + dims[0]/2
+            #     bot = center[1] - dims[1]/2
+            #     top = center[1] + dims[1]/2
 
-                board_states = ti.static(self.board_states[frame])
-                dims = ti.static(self.board_dims[None])
+            #     pos_i_trans = self.transform_particle(pos_i, center, -1*theta)
 
-                board_left = board_states[0]
-                board_right = board_states[0] + dims[0]
-                board_bot = board_states[1]
-                board_top = board_states[1] + dims[1]
-                board_front = board_states[2]
-                board_back = board_states[2] - dims[2]
-                board_center = board_states + ti.Vector([1*dims[0]/2, -0.5, -1*dims[2]/2])
+            #     if pos_i_trans[0] >= left-0.5 and pos_i_trans[0] <= right+0.5 and pos_i_trans[1] >= bot-0.5 and pos_i_trans[1] <= bot+1:
+            #         self.particle_active[frame,i] = 2
+            #         self.num_suctioned[frame] += 1
+            #     else:
+            #         self.particle_age[frame,i] += 1
 
-                upstream_grad = self.positions_iter.grad[frame,0,i]
-
-                jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
-
-                if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
-                    # Check for innner bounds
-                    # This is the field that pulls particles close
-                    if ((pos_i[0] < board_left or pos_i[0] > board_right) or (pos_i[2] > board_front or pos_i[2] < board_back)) or (pos_i[1] < board_bot):
-                        tmp = board_center - pos_i
-                        norm = tmp.norm()
-
-                    # TODO
-                        
-
-                        
 
     @ti.kernel
     def update_velocity_froward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 self.velocities[frame,i] = (self.positions[frame,i] - self.positions[frame-1,i]) / self.delta_t
 
     @ti.kernel
     def update_velocity_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 if frame == self.max_timesteps-1:
                     pass
                 else:
@@ -468,7 +558,7 @@ class HandGradSim3D:
     @ti.kernel
     def update_grid(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 cell = self.get_cell(self.positions_iter[frame,0,i])
                 # ti.Vector doesn't seem to support unpacking yet
                 # but we can directly use int Vectors as indices
@@ -478,7 +568,7 @@ class HandGradSim3D:
     @ti.kernel
     def find_particle_neighbors(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 pos_i = self.positions_iter[frame,0,i]
                 cell = self.get_cell(pos_i)
                 nb_i = 0
@@ -569,7 +659,7 @@ class HandGradSim3D:
     def compute_lambdas_forward(self, frame: ti.i32, it: ti.i32):
         # Eq (8) ~ (11)
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 pos_i = self.positions_iter[frame,it,i]
 
                 grad_i = ti.Vector([0.0, 0.0, 0.0])
@@ -686,7 +776,7 @@ class HandGradSim3D:
     def compute_position_deltas_forward(self, frame: ti.i32, it: ti.i32):
         # Eq(12), (14)
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 pos_i = self.positions_iter[frame,it,i]
                 lambda_i = self.lambdas[frame,it,i]
 
@@ -758,20 +848,20 @@ class HandGradSim3D:
     @ti.kernel
     def apply_position_deltas_forward(self, frame: ti.i32, it: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 self.positions_iter[frame, it+1, i] = self.positions_iter[frame,it,i] + self.position_deltas[frame,it,i]
     
     @ti.kernel
     def apply_position_deltas_backward(self, frame: ti.i32, it: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 self.positions_iter.grad[frame,it,i] = self.positions_iter.grad[frame,it+1,i]
                 self.position_deltas.grad[frame,it,i] = self.positions_iter.grad[frame,it+1,i]
 
     @ti.kernel
     def apply_final_position_deltas_forward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1:
+            if self.particle_active[frame-1,i] == 1:
                 pos = self.positions_iter[frame,self.pbf_num_iters,i]
                 pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
                 self.positions[frame,i] = self.confine_position_to_boundary_forward(pos_confined_to_board)
@@ -779,7 +869,7 @@ class HandGradSim3D:
     @ti.kernel
     def apply_final_position_deltas_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
-            if self.particle_active[frame,i] == 1 :
+            if self.particle_active[frame-1,i] == 1 :
                 pos = self.positions_iter[frame, self.pbf_num_iters, i]
                 pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
                 # pos_confined_to_bounds = self.confine_position_to_boundary_forward(pos_confined_to_board)
@@ -894,13 +984,7 @@ class HandGradSim3D:
 
 
     def step_forward(self, frame):
-        # Everything active at the end of the previous frame
-        # are assumed to be still active
-        self.copy_active(frame)
-
         self.gravity_forward(frame)
-        # Take move particles with suction
-        self.apply_suction(frame)
 
         self.update_grid(frame)
         self.find_particle_neighbors(frame)
@@ -912,7 +996,13 @@ class HandGradSim3D:
 
         self.update_velocity_froward(frame)
 
+        # Everything active at the end of the previous frame
+        # are assumed to be still active
+        self.copy_active(frame)
+        # Take some particles out with suction
+        self.apply_suction(frame)
         
+
     def backward_step(self, frame):
         self.update_velocity_backward(frame)
 

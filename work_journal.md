@@ -2,7 +2,13 @@
 
 
 
-### Week of July 27th - July 27th, 2020
+### Week of July 27th - July 29th, 2020
+
+
+#### July 29th
+- Suction control
+    - Coding newly formulated suction
+    - Fixing old code to be fully compatible with 3D gradients
 
 
 #### July 28th
@@ -10,8 +16,6 @@
     - Tested old MPC in 3D with rendering
         - Results show that the old hueristics are not good
     - Started writting up new formulation
-
-
 
 
 #### July 27th

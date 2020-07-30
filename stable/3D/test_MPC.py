@@ -37,7 +37,7 @@ for i in range(100,actual_sim.max_timesteps):
 
         # Do gradient descent using aux sim
         best_loss = 1e5
-        best_iter = 0   
+        best_iter = 0
         loss = best_loss
         k = 0
         lr = 5
