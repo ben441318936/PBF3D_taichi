@@ -2,7 +2,18 @@
 
 
 
-### Week of July 27th - July 29th, 2020
+### Week of July 27th - July 31st, 2020
+
+
+#### July 31st
+- Suction control
+    - Implementing new formulation and gradients
+
+
+#### July 30th
+- Fluid rendering
+    - Rerun simulation to get ground truth 
+    - Fixed issues with ground truth generation with Unity fluid rendering
 
 
 #### July 29th

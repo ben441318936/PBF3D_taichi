@@ -426,7 +426,8 @@ class HandGradSim3D:
 
                 upstream_grad = self.positions_iter.grad[frame,0,i]
 
-                jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+                eye = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+                grad_delta = ti.Matrix([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
 
                 if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
                     # Check for innner bounds
@@ -435,8 +436,42 @@ class HandGradSim3D:
                         tmp = board_center - pos_i
                         norm = tmp.norm()
 
-                    # TODO
-                        
+                        c = 0.5
+
+                        # d Dx / dx
+                        grad_delta[0,0] = norm**(-1) * (norm**2+c)**(-1) \
+                                          - tmp[0]**2 * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[0]**2 * norm**(-1) * (norm**2+c)**(-2)
+                        # d Dx / dy
+                        grad_delta[1,0] = -1 * tmp[0] * tmp[1] * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[0] * tmp[1] * norm**(-3) * (norm**2+c)**(-2)
+                        # d Dx / dz
+                        grad_delta[2,0] = -1 * tmp[0] * tmp[2] * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[0] * tmp[2] * norm**(-3) * (norm**2+c)**(-2)       
+
+                        # d Dy / dx
+                        grad_delta[0,1] = -1 * tmp[1] * tmp[0] * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[1] * tmp[0] * norm**(-3) * (norm**2+c)**(-2)
+                        # d Dy / dy
+                        grad_delta[1,1] = norm**(-1) * (norm**2+c)**(-1) \
+                                          - tmp[1]**2 * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[1]**2 * norm**(-1) * (norm**2+c)**(-2)
+                        # d Dy / dz
+                        grad_delta[2,0] = -1 * tmp[1] * tmp[2] * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[1] * tmp[2] * norm**(-3) * (norm**2+c)**(-2)   
+                        # d Dz / dx
+                        grad_delta[0,2] = -1 * tmp[2] * tmp[0] * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[2] * tmp[0] * norm**(-3) * (norm**2+c)**(-2)
+                        # d Dz / dy
+                        grad_delta[1,2] = -1 * tmp[2] * tmp[1] * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[2] * tmp[1] * norm**(-3) * (norm**2+c)**(-2)
+                        # d Dy / dy
+                        grad_delta[2,2] = norm**(-1) * (norm**2+c)**(-1) \
+                                          - tmp[2]**2 * norm**(-3) * (norm**2+c)**(-1) \
+                                          - 2 * tmp[2]**2 * norm**(-1) * (norm**2+c)**(-2)    
+
+                self.positions_after_grav_confined.grad[frame,i] += -1 * (eye + grad_delta) @ upstream_grad
+                self.board_states.grad[frame] += 1 * grad_delta @ upstream_grad
 
                         
 
@@ -508,24 +543,47 @@ class HandGradSim3D:
     # Upstream gradient is a 2-vector
     @ti.func
     def spiky_gradient_backward(self, r, h):
-        jacobian = ti.Matrix([[0.0, 0.0], [0.0, 0.0]])
+        jacobian = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
         c = 1
         r_len = r.norm()
         if 0 < r_len and r_len < h:
             f = ti.static(self.spiky_grad_factor)
+            # d Gx / dx
             jacobian[0,0] =   f / h**4 / r_len \
                             - f / h**4 * r[0]**2 / r_len**3 \
                             - 2 * f / h**5 \
                             + f * r_len \
                             + f * r[0] / r_len  
+            # d Gx / dy
+            jacobian[1,0] = - f / h**4 * r[0] * r[1] / r_len**3 \
+                            + f * r[0] * r[1] / r_len
+            # d Gx / dz
+            jacobian[2,0] = - f / h**4 * r[0] * r[2] / r_len**3 \
+                            + f * r[0] * r[2] / r_len
+            # d Gy / dx
             jacobian[0,1] = - f / h**4 * r[1] * r[0] / r_len**3 \
                             + f * r[1] * r[0] / r_len
-            jacobian[1,0] = jacobian[0,1]
+            # d Gy / dy
             jacobian[1,1] =   f / h**4 / r_len \
                             - f / h**4 * r[1]**2 / r_len**3 \
                             - 2 * f / h**5 \
                             + f * r_len \
                             + f * r[1] / r_len
+            # d Gy / dz
+            jacobian[2,1] = - f / h**4 * r[1] * r[2] / r_len**3 \
+                            + f * r[1] * r[2] / r_len
+            # d Gz / dx
+            jacobian[0,2] = - f / h**4 * r[2] * r[0] / r_len**3 \
+                            + f * r[2] * r[0] / r_len
+            # d Gz / dy
+            jacobian[1,2] = - f / h**4 * r[2] * r[1] / r_len**3 \
+                            + f * r[2] * r[1] / r_len   
+            # d Gy / dy
+            jacobian[2,2] =   f / h**4 / r_len \
+                            - f / h**4 * r[2]**2 / r_len**3 \
+                            - 2 * f / h**5 \
+                            + f * r_len \
+                            + f * r[2] / r_len          
         for i in ti.static(range(self.dim)):
             for j in ti.static(range(self.dim)):
                 if jacobian[i,j] > c:
@@ -600,7 +658,7 @@ class HandGradSim3D:
         for i in range(self.num_particles):
             # if self.particle_active[frame-1,i] == 1:
             pos_i = self.positions_iter[frame,it,i]
-            grad_i = ti.Vector([0.0, 0.0])
+            grad_i = ti.Vector([0.0, 0.0, 0.0])
             sum_gradient_sqr = 0.0
             density_constraint = 0.0
 
@@ -633,9 +691,9 @@ class HandGradSim3D:
             lambda_to_constraint = -1 / (sum_gradient_sqr + self.epsilon)
 
             # There is contribution to pos_i from the spiky computation of each neighbor
-            SGS_to_pos_i = ti.Vector([0.0, 0.0])
+            SGS_to_pos_i = ti.Vector([0.0, 0.0, 0.0])
             # There is contribution to pos_i from the poly6 computation of each neighbor
-            constraint_to_pos_i = ti.Vector([0.0, 0.0])
+            constraint_to_pos_i = ti.Vector([0.0, 0.0, 0.0])
 
             constraint_to_val = self.rho0 / self.mass
 
@@ -773,7 +831,7 @@ class HandGradSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
                 pos = self.positions_iter[frame,self.pbf_num_iters,i]
-                pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                pos_confined_to_board = self.confine_position_to_board_forward(frame, pos)
                 self.positions[frame,i] = self.confine_position_to_boundary_forward(pos_confined_to_board)
 
     @ti.kernel
@@ -781,11 +839,11 @@ class HandGradSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1 :
                 pos = self.positions_iter[frame, self.pbf_num_iters, i]
-                pos_confined_to_board = self.confine_position_to_board_forward(frame, self.positions[frame-1,i], pos)
+                pos_confined_to_board = self.confine_position_to_board_forward(frame, pos)
                 # pos_confined_to_bounds = self.confine_position_to_boundary_forward(pos_confined_to_board)
 
                 jacobian_bounds = self.confine_position_to_boundary_backward(pos_confined_to_board)
-                jacobian_board, _ = self.confine_position_to_board_backward(frame, self.positions[frame-1,i], pos)
+                jacobian_board, _ = self.confine_position_to_board_backward(frame, pos)
 
                 self.positions_iter.grad[frame,self.pbf_num_iters,i] = jacobian_board @ jacobian_bounds @ self.positions.grad[frame,i]
 
@@ -900,7 +958,7 @@ class HandGradSim3D:
 
         self.gravity_forward(frame)
         # Take move particles with suction
-        self.apply_suction(frame)
+        self.apply_suction_forward(frame)
 
         self.update_grid(frame)
         self.find_particle_neighbors(frame)
@@ -923,6 +981,7 @@ class HandGradSim3D:
             self.compute_position_deltas_backward(frame,it)
             self.compute_lambdas_backward(frame,it)
 
+        self.apply_suction_backward(frame)
         self.gravity_backward(frame)
 
     # For aux simulation that goes through all timesteps
@@ -955,8 +1014,8 @@ class HandGradSim3D:
     def backward(self):
         self.clear_global_grads()
         self.compute_loss_backward()
-        # for i in reversed(range(1, self.max_timesteps)):
-        #     self.backward_step(i)
+        for i in reversed(range(1, self.max_timesteps)):
+            self.backward_step(i)
 
     # For actual simulation that takes one step at a time
     def init_step(self):
