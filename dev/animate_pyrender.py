@@ -26,7 +26,7 @@ v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_t
 
 print("Viewport size:", v.viewport_size)
 
-for k in range(0,200):
+for k in range(0,50):
     if not v.is_active:
         break
 
@@ -34,8 +34,8 @@ for k in range(0,200):
 
     boundary = np.array([20.0, 20.0, 20.0])
 
-    pts = np.load("../viz_results/3D/new_tool/exp3/particles/frame_{}.npy".format(k))
-    tool_pos = np.load("../viz_results/3D/new_tool/exp3/tool/frame_{}.npy".format(k))
+    pts = np.load("../viz_results/3D/new_MPC/particles/frame_{}.npy".format(k))
+    tool_pos = np.load("../viz_results/3D/new_MPC/tool/frame_{}.npy".format(k))
 
     if pts.shape[0] > 0:
 

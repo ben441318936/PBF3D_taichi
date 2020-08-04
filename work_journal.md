@@ -2,6 +2,21 @@
 
 
 
+### Week of August 3rd - August 3rd, 2020
+
+
+#### Aug. 3rd
+- Suction control
+    - Testing implementatoin of new formulation
+        - Debugging and tunning the suction force values
+    - TODO
+        - Adjust loss formulation to count all particles emitted
+        - Make upward suction force small so it moves incrementally (more differentiable?)
+        - Make the suction field larger to avoid getting 0 gradients
+        - Make a continuous field? Somehow have a big field that can approximate the suction behaivor for the whole environment, to avoid non-differnetiability at boundaries
+
+
+
 ### Week of July 27th - July 31st, 2020
 
 
