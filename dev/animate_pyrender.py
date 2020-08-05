@@ -45,9 +45,11 @@ for k in range(0,50):
         rounded_dims = np.round(boundary / dx).astype(int)
         env = np.zeros((tuple(rounded_dims)))
         # Put particles in discrete grid
-        inds = np.round(pts / dx).astype(int)
+        inds = np.floor(pts / dx).astype(int)
         for i in np.arange(inds.shape[0]):
-            env[inds[i,0], inds[i,1], inds[i,2]] += 1
+            lim = env.shape
+            if inds[i,0] < lim[0] and inds[i,1] < lim[1] and inds[i,2] < lim[2]:
+                env[inds[i,0], inds[i,1], inds[i,2]] += 1
 
         # Gaussian smoothing on the env
         smooth_env = gaussian_filter(env, sigma=3)
@@ -93,6 +95,9 @@ for k in range(0,50):
         #     print("yfov:", cam.yfov)
 
         v.render_lock.release()
+
+    else:
+        break
 
 print("Animation done")
 

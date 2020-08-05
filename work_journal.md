@@ -2,7 +2,17 @@
 
 
 
-### Week of August 3rd - August 3rd, 2020
+### Week of August 3rd - August 4th, 2020
+
+
+#### Aug. 4th
+- Suction control
+    - Current problem
+        - The suction field only affects the particles when they are very close
+        - So we don't get gradients until then 
+        - Hard boundaries in the field, not differentiable
+    - New ideas
+        - New suction field that is continuous and differentiable everywhere
 
 
 #### Aug. 3rd

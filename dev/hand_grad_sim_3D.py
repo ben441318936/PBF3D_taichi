@@ -408,7 +408,7 @@ class HandGradSim3D:
                         self.positions_iter[frame,0,i] += ti.Vector([0.0, 1.0, 0.0]) * 1
                     # self.positions_iter[frame,0,i] = pos_i + pos_delta
             elif self.particle_active[frame,i] == 2:   
-                self.positions_iter[frame,0,i] = self.positions[frame,i] + ti.Vector([0.0, 1.0, 0.0]) * 1
+                self.positions_iter[frame,0,i] = self.positions[frame-1,i] + ti.Vector([0.0, 1.0, 0.0]) * 1
 
     # This backward will propagate back to particle position and to tool position
     @ti.kernel
@@ -474,8 +474,8 @@ class HandGradSim3D:
                                           - tmp[2]**2 * norm**(-3) * (norm**2+c)**(-1) \
                                           - 2 * tmp[2]**2 * norm**(-1) * (norm**2+c)**(-2)    
 
-                self.positions_after_grav_confined.grad[frame,i] += -1 * (eye + grad_delta) @ upstream_grad
-                self.board_states.grad[frame] += 1 * grad_delta @ upstream_grad
+                self.positions_after_grav_confined.grad[frame,i] += 4 * -1 * (eye + grad_delta) @ upstream_grad
+                self.board_states.grad[frame] += 4 * 1 * grad_delta @ upstream_grad
 
             elif self.particle_active[frame,i] == 2:
                 self.positions.grad[frame,i] = self.positions_iter.grad[frame,0,i]
@@ -870,28 +870,30 @@ class HandGradSim3D:
     def compute_loss_forward(self):
         for f in range(1,self.max_timesteps):
             loss = 0.0
-            n = self.num_active[f] - self.num_suctioned[f]
+            n = self.num_active[f]
             if n != 0:
                 for i in range(self.num_particles):
-                    if self.particle_active[f,i] == 1:
-                        d = 0.5 * (100 - self.positions[f,i][1])**2
-                        if d > 0:
-                            loss +=  (self.max_timesteps / ti.cast(f, ti.f32)) * d
-                self.loss[None] += loss / (self.num_active[f] - self.num_suctioned[f])
+                    if self.particle_active[f,i] == 1 or self.particle_active[f,i] == 2:
+                        if self.positions[f,i][1] <= 100:
+                            d = 0.5 * (100 - self.positions[f,i][1])**2
+                            if d > 0:
+                                loss +=  (self.max_timesteps / ti.cast(f, ti.f32)) * d
+                self.loss[None] += loss / (self.num_active[f])
         self.loss[None] /= self.max_timesteps
 
 
     @ti.kernel
     def compute_loss_backward(self):
         for f in range(1,self.max_timesteps):
-            n = self.num_active[f] - self.num_suctioned[f]
+            n = self.num_active[f]
             if n != 0:
                 for i in range(self.num_particles):
-                    if self.particle_active[f,i] == 1:
-                        dif = 100 - self.positions[f,i][1]
-                        d = 0.5 * (dif)**2
-                        if d > 0:
-                            self.positions.grad[f,i] += ti.Vector([0.0, -1*dif, 0.0])
+                    if self.particle_active[f,i] == 1 or self.particle_active[f,i] == 2:
+                        if self.positions[f,i][1] <= 100:
+                            dif = 100 - self.positions[f,i][1]
+                            d = 0.5 * (dif)**2
+                            if d > 0:
+                                self.positions.grad[f,i] += ti.Vector([0.0, -1*dif, 0.0]) / self.num_active[f] / self.max_timesteps
 
 
     def clear_neighbor_info(self):
@@ -917,6 +919,7 @@ class HandGradSim3D:
         self.gravity_forward(frame)
         # Take move particles with suction
         self.apply_suction_forward(frame)
+        self.prop_resting_forward(frame)
 
         self.update_grid(frame)
         self.find_particle_neighbors(frame)
@@ -939,6 +942,7 @@ class HandGradSim3D:
             self.compute_position_deltas_backward(frame,it)
             self.compute_lambdas_backward(frame,it)
 
+        self.prop_resting_backward(frame)
         self.apply_suction_backward(frame)
         self.gravity_backward(frame)
 
@@ -1028,7 +1032,7 @@ class HandGradSim3D:
     def save_npy(self,frame):
         pos = self.positions.to_numpy()[frame,:,:]
         active = self.particle_active.to_numpy()[frame,:]
-        inds = (active == 1)# | (active == 2)
+        inds = np.logical_or(active == 1, active == 2)
         np.save("../viz_results/3D/new_MPC/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.board_states.to_numpy()[frame,:]
