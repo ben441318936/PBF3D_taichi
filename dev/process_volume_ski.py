@@ -4,51 +4,45 @@ from scipy.ndimage import gaussian_filter
 import trimesh
 import pyrender
 
-# exp = 4
-# prefix = "./meshing/exp{}/".format(exp)
+exp = "exp6"
 
-boundary = np.array([40.0, 40.0, 40.0])
+for k in range(0,177):
 
-pts = np.load("../viz_results/3D/new/npy/frame_199.npy")
+    print("Preparing mesh {}".format(k))
 
-# Use 3D Gaussian convolution to fill the volume from discrete points
-# First prepare the whole environment as 3D grid
-dx = 0.1
-rounded_dims = np.round(boundary / dx).astype(int)
-env = np.zeros((tuple(rounded_dims)))
-# Put particles in discrete grid
-inds = np.round(pts / dx).astype(int)
-for i in range(inds.shape[0]):
-    env[inds[i,0], inds[i,1], inds[i,2]] = 1
+    boundary = np.array([20.0, 20.0, 20.0])
 
-# Gaussian smoothing on the env
-smooth_env = gaussian_filter(env, sigma=3)
+    pts = np.load("../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
+    tool_pos = np.load("../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
 
-padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
-# print(padded_env.shape)
+    if pts.shape[0] > 0:
 
-# Use marching cubes to obtain the surface mesh of these ellipsoids
-vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/5)
+        # Use 3D Gaussian convolution to fill the volume from discrete points
+        # First prepare the whole environment as 3D grid
+        dx = 0.1
+        rounded_dims = np.round(boundary / dx).astype(int)
+        env = np.zeros((tuple(rounded_dims)))
+        # Put particles in discrete grid
+        inds = np.floor(pts / dx).astype(int)
+        for i in np.arange(inds.shape[0]):
+            lim = env.shape
+            if inds[i,0] < lim[0] and inds[i,1] < lim[1] and inds[i,2] < lim[2]:
+                env[inds[i,0], inds[i,1], inds[i,2]] += 1
 
-# np.save(prefix+"vertices.npy", vertices)
-# np.save(prefix+"normals.npy", normals)
-# np.save(prefix+"faces.npy", faces)
+        # Gaussian smoothing on the env
+        smooth_env = gaussian_filter(env, sigma=3)
 
-tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
-tm.visual.vertex_colors = np.zeros(shape=(tm.vertices.shape[0],4))
-tm.visual.vertex_colors[:,0] = 255
-tm.visual.vertex_colors[:,3] = 255
+        padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
 
-m = pyrender.Mesh.from_trimesh(tm)
-nm = pyrender.Node(mesh=m, matrix=np.eye(4))
+        # Use marching cubes to obtain the surface mesh of these ellipsoids
+        vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
+        np.save("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k), vertices)
+        np.save("../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k), faces)
+        np.save("../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k), normals)
 
-scene = pyrender.Scene()
-scene.add_node(nm)
-v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_thread=True)
+        tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
+        tm.export("../viz_results/3D/new_MPC/{}/fluid/frame_{}.ply".format(exp,k))
 
-v.render_lock.acquire()
-nm.mesh = m
-v.render_lock.release()
-
-while v.is_active:
-    pass
+    else:
+        print("No points in file")
+        break

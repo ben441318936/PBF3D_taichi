@@ -2,14 +2,14 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 import pickle
 
-actual_sim = HandGradSim3D(max_timesteps=50, num_particles=600, do_save_npy=True, do_emit=True)
-aux_sim = HandGradSim3D(max_timesteps=10, num_particles=600, do_save_npy=False, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=200, num_particles=400, do_save_npy=True, do_emit=True)
+aux_sim = HandGradSim3D(max_timesteps=10, num_particles=400, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
 init_tool_states = np.zeros((aux_sim.max_timesteps, aux_sim.dim))
 for i in range(aux_sim.max_timesteps):
-    init_tool_states[i,:] = np.array([15.0, 0.5, 15.0])
+    init_tool_states[i,:] = np.array([12.0, 0.5, 19.0])
 best_states = init_tool_states.copy()
 best_point = best_states[1,:]
 
@@ -18,10 +18,10 @@ actual_sim.initialize()
 actual_sim.init_step()
 
 # Run the main sim for some time to fill up particles
-for i in range(1,10):
+for i in range(1,100):
     actual_sim.take_action(i, np.array([10.0, 20.0, 10.0]))
 
-for i in range(10,actual_sim.max_timesteps):
+for i in range(100,actual_sim.max_timesteps):
     print("Finding action", i)
     # actual_sim.take_action(i,np.array([10.0, 20.0]))
 
@@ -36,11 +36,11 @@ for i in range(10,actual_sim.max_timesteps):
     if part_num_active - part_num_suctioned > 0:
 
         # Do gradient descent using aux sim
-        best_loss = 1e5
+        best_loss = 1e7
         best_iter = 0   
         loss = best_loss
         k = 0
-        lr = 5
+        lr = 1e-1
 
         while loss > 1e-2 and k < 21:
             # Clear the aux sim
@@ -66,9 +66,16 @@ for i in range(10,actual_sim.max_timesteps):
             tool_state_grads = aux_sim.board_states.grad.to_numpy()
             # print(tool_state_grads)
 
-            tool_state_grads = np.clip(tool_state_grads, -10, 10)
+            for l in range(tool_state_grads.shape[0]):
+                m = np.abs(np.max(tool_state_grads[l,:]))
+                if m >= 1:
+                    tool_state_grads[l,:] = tool_state_grads[l,:] / m
+
+            # tool_state_grads = np.clip(tool_state_grads, -10, 10)
+            # print(tool_state_grads)
 
             init_tool_states -= lr * tool_state_grads
+            # print(init_tool_states)
 
             k += 1
 
@@ -76,8 +83,11 @@ for i in range(10,actual_sim.max_timesteps):
                 lr *= 0.95
 
         # Project the solved point
+        # print(best_states)
         best_point = best_states[1,:]
+        # print(best_point)
         best_point = actual_sim.confine_board_to_boundary(best_point)
+        # print(best_point)
 
         # Take the first step in the optimal trajectory will be used as init for future GD
         for j in range(0,aux_sim.max_timesteps):

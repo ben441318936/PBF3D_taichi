@@ -2,7 +2,12 @@
 
 
 
-### Week of August 3rd - August 4th, 2020
+### Week of August 3rd - August 5th, 2020
+
+
+#### Aug. 5th
+- Suction control
+    - More debugging and testing using the simple field
 
 
 #### Aug. 4th

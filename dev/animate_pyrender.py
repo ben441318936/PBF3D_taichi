@@ -26,7 +26,9 @@ v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_t
 
 print("Viewport size:", v.viewport_size)
 
-for k in range(0,50):
+exp = "exp6"
+
+for k in range(0,177):
     if not v.is_active:
         break
 
@@ -34,32 +36,37 @@ for k in range(0,50):
 
     boundary = np.array([20.0, 20.0, 20.0])
 
-    pts = np.load("../viz_results/3D/new_MPC/particles/frame_{}.npy".format(k))
-    tool_pos = np.load("../viz_results/3D/new_MPC/tool/frame_{}.npy".format(k))
+    pts = np.load("../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
+    tool_pos = np.load("../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
 
     if pts.shape[0] > 0:
 
-        # Use 3D Gaussian convolution to fill the volume from discrete points
-        # First prepare the whole environment as 3D grid
-        dx = 0.1
-        rounded_dims = np.round(boundary / dx).astype(int)
-        env = np.zeros((tuple(rounded_dims)))
-        # Put particles in discrete grid
-        inds = np.floor(pts / dx).astype(int)
-        for i in np.arange(inds.shape[0]):
-            lim = env.shape
-            if inds[i,0] < lim[0] and inds[i,1] < lim[1] and inds[i,2] < lim[2]:
-                env[inds[i,0], inds[i,1], inds[i,2]] += 1
+        # # Use 3D Gaussian convolution to fill the volume from discrete points
+        # # First prepare the whole environment as 3D grid
+        # dx = 0.1
+        # rounded_dims = np.round(boundary / dx).astype(int)
+        # env = np.zeros((tuple(rounded_dims)))
+        # # Put particles in discrete grid
+        # inds = np.floor(pts / dx).astype(int)
+        # for i in np.arange(inds.shape[0]):
+        #     lim = env.shape
+        #     if inds[i,0] < lim[0] and inds[i,1] < lim[1] and inds[i,2] < lim[2]:
+        #         env[inds[i,0], inds[i,1], inds[i,2]] += 1
 
-        # Gaussian smoothing on the env
-        smooth_env = gaussian_filter(env, sigma=3)
+        # # Gaussian smoothing on the env
+        # smooth_env = gaussian_filter(env, sigma=3)
 
-        padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
+        # padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
 
-        # Use marching cubes to obtain the surface mesh of these ellipsoids
-        vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
+        # # Use marching cubes to obtain the surface mesh of these ellipsoids
+        # vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
+
+        vertices = np.load("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k))
+        faces = np.load("../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k))
+        normals = np.load("../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k))
 
         tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
+        # tm = trimesh.load_mesh("../viz_results/3D/new_MPC/fluid/frame_{}.ply".format(k))
         tm.visual.vertex_colors = np.zeros(shape=(tm.vertices.shape[0],4))
         tm.visual.vertex_colors[:,0] = 255
         tm.visual.vertex_colors[:,3] = 255
@@ -106,4 +113,4 @@ v.close_external()
 while v.is_active:
     pass
 
-v.save_gif("./exp3.gif")
+v.save_gif("./{}.gif".format(exp))

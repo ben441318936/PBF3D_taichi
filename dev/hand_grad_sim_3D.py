@@ -390,7 +390,7 @@ class HandGradSim3D:
 
                 # If particle is within some area, apply force to it
                 # Check for outer bounds
-                if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
+                if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-1 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
                     # pos_delta = ti.Vector([0.0, 0.0, 0.0])
                     # Check for innner bounds
                     # This is the field that pulls particles close
@@ -405,10 +405,10 @@ class HandGradSim3D:
                         # No longer interact with other particles
                         self.particle_active[frame,i] = 2
                         self.num_suctioned[frame] += 1
-                        self.positions_iter[frame,0,i] += ti.Vector([0.0, 1.0, 0.0]) * 1
+                        self.positions_iter[frame,0,i] += ti.Vector([0.0, 1.0, 0.0]) * 5
                     # self.positions_iter[frame,0,i] = pos_i + pos_delta
             elif self.particle_active[frame,i] == 2:   
-                self.positions_iter[frame,0,i] = self.positions[frame-1,i] + ti.Vector([0.0, 1.0, 0.0]) * 1
+                self.positions_iter[frame,0,i] = self.positions[frame-1,i] + ti.Vector([0.0, 1.0, 0.0]) * 5
 
     # This backward will propagate back to particle position and to tool position
     @ti.kernel
@@ -433,7 +433,7 @@ class HandGradSim3D:
                 eye = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
                 grad_delta = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
 
-                if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-0.5 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
+                if pos_i[0] >= board_left-1 and pos_i[0] <= board_right+1 and pos_i[1] >= board_bot-1 and pos_i[1] <= board_bot+1 and pos_i[2] <= board_front+1 and pos_i[2] >= board_back-1:
                     # Check for innner bounds
                     # This is the field that pulls particles close
                     if ((pos_i[0] < board_left or pos_i[0] > board_right) or (pos_i[2] > board_front or pos_i[2] < board_back)) or (pos_i[1] < board_bot):
@@ -849,21 +849,21 @@ class HandGradSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
                 pos = self.positions_iter[frame,self.pbf_num_iters,i]
-                pos_confined_to_board = self.confine_position_to_board_forward(frame, pos)
-                self.positions[frame,i] = self.confine_position_to_boundary_forward(pos_confined_to_board)
+                # pos_confined_to_board = self.confine_position_to_board_forward(frame, pos)
+                self.positions[frame,i] = self.confine_position_to_boundary_forward(pos)
 
     @ti.kernel
     def apply_final_position_deltas_backward(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1 :
                 pos = self.positions_iter[frame, self.pbf_num_iters, i]
-                pos_confined_to_board = self.confine_position_to_board_forward(frame, pos)
+                # pos_confined_to_board = self.confine_position_to_board_forward(frame, pos)
                 # pos_confined_to_bounds = self.confine_position_to_boundary_forward(pos_confined_to_board)
 
-                jacobian_bounds = self.confine_position_to_boundary_backward(pos_confined_to_board)
-                jacobian_board = self.confine_position_to_board_backward(frame, pos)
+                jacobian_bounds = self.confine_position_to_boundary_backward(pos)
+                # jacobian_board = self.confine_position_to_board_backward(frame, pos)
 
-                self.positions_iter.grad[frame,self.pbf_num_iters,i] = jacobian_board @ jacobian_bounds @ self.positions.grad[frame,i]
+                self.positions_iter.grad[frame,self.pbf_num_iters,i] = jacobian_bounds @ self.positions.grad[frame,i]
 
 
     @ti.kernel
@@ -1033,9 +1033,9 @@ class HandGradSim3D:
         pos = self.positions.to_numpy()[frame,:,:]
         active = self.particle_active.to_numpy()[frame,:]
         inds = np.logical_or(active == 1, active == 2)
-        np.save("../viz_results/3D/new_MPC/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp6/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.board_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp6/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
