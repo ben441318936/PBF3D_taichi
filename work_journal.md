@@ -2,7 +2,33 @@
 
 
 
-### Week of August 3rd - August 5th, 2020
+### Week of August 3rd - August 7th, 2020
+
+
+#### Aug. 7th
+- Improving rendering
+    - Changing the simulation particle radius
+        - Smaller radius leads to smaller overall volume in render, but does not lead to smoother fluid surfaces
+        - 1st is 0.3 (default); 2nd is 0.1
+
+            <img src="dev/exp6.gif" width="350" />
+
+            <img src="dev/exp7.gif" width="350" />
+
+
+    - Additional Gaussian smoothing
+        - Effective at smoothing the fluid surface, we can control the smoothing effects by changing the variance of the Gaussian kernel and the number of smoothing iterations
+        - 1st is var=5, too much smoothing leads to artificial looking surfaces; 2nd is var=3, which looks more natural
+
+            <img src="dev/exp6_new.gif" width="350" />
+
+            <img src="dev/exp6_new_2.gif" width="350" />
+
+
+
+
+#### Aug. 6th
+- Setting up Linux system for potential PyFleX integration
 
 
 #### Aug. 5th

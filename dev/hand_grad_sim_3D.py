@@ -2,7 +2,7 @@ import taichi as ti
 import numpy as np
 import math
 
-ti.init(arch=ti.gpu)
+ti.init(arch=ti.cpu)
 
 @ti.data_oriented
 class HandGradSim3D:
@@ -19,7 +19,7 @@ class HandGradSim3D:
         self.do_save_npy = do_save_npy
         self.do_render = do_render
 
-        self.boundary = np.array([20.0, 20.0, 20.0])
+        self.boundary = np.array([15.0, 20.0, 15.0])
 
         self.cell_size = 2.51
         self.cell_recpr = 1.0 / self.cell_size
@@ -1033,9 +1033,9 @@ class HandGradSim3D:
         pos = self.positions.to_numpy()[frame,:,:]
         active = self.particle_active.to_numpy()[frame,:]
         inds = np.logical_or(active == 1, active == 2)
-        np.save("../viz_results/3D/new_MPC/exp6/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp7/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.board_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp6/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp7/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
