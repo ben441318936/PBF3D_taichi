@@ -18,7 +18,7 @@
 
     - Additional Gaussian smoothing
         - Effective at smoothing the fluid surface, we can control the smoothing effects by changing the variance of the Gaussian kernel and the number of smoothing iterations
-        - 1st is var=5, too much smoothing leads to artificial looking surfaces; 2nd is var=3, which looks more natural
+        - 1st is var=5, stronger post-smoothing; 2nd is var=3, less post-smoothing
 
             <img src="dev/exp6_new.gif" width="350" />
 

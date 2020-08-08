@@ -1033,9 +1033,9 @@ class HandGradSim3D:
         pos = self.positions.to_numpy()[frame,:,:]
         active = self.particle_active.to_numpy()[frame,:]
         inds = np.logical_or(active == 1, active == 2)
-        np.save("../viz_results/3D/new_MPC/exp7/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp8/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.board_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp7/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp8/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     

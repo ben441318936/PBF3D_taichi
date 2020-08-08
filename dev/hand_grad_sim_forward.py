@@ -33,7 +33,7 @@ initial_vel0 = np.array([10.0, 0.0, 0.0])
 
 board_states = np.zeros((time, 3))
 for i in range(time):
-    board_states[i,:] = np.array([15.0, 20, 15.0])
+    board_states[i,:] = np.array([15.0, 0.5, 15.0])
 
 sim.initialize(board_states=board_states)
 
