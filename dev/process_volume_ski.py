@@ -4,9 +4,9 @@ from scipy.ndimage import gaussian_filter
 import trimesh
 import pyrender
 
-exp = "exp6"
+exp = "exp8"
 
-for k in range(0,600):
+for k in range(0,200):
 
     print("Preparing mesh {}".format(k))
 
@@ -37,9 +37,9 @@ for k in range(0,600):
 
         # Use marching cubes to obtain the surface mesh of these ellipsoids
         vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
-        np.save("../viz_results/3D/new_MPC/{}/fluid/vertices_new_2_frame_{}.npy".format(exp,k), vertices)
-        np.save("../viz_results/3D/new_MPC/{}/fluid/faces_new_2_frame_{}.npy".format(exp,k), faces)
-        np.save("../viz_results/3D/new_MPC/{}/fluid/normals_new_2_frame_{}.npy".format(exp,k), normals)
+        np.save("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k), vertices)
+        np.save("../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k), faces)
+        np.save("../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k), normals)
 
         # tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
         # tm.export("../viz_results/3D/new_MPC/{}/fluid/frame_{}.ply".format(exp,k))

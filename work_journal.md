@@ -1,6 +1,12 @@
 ## Work journal
 
 
+### Week of August 10th - August 10th, 2020
+#### Aug. 10th
+- Suction control
+    - Implemented new smooth suction
+    - Prelim test shows tool moves to corner then stops moving
+
 
 ### Week of August 3rd - August 7th, 2020
 

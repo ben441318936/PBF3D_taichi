@@ -26,9 +26,9 @@ v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_t
 
 print("Viewport size:", v.viewport_size)
 
-exp = "exp6"
+exp = "exp8"
 
-for k in range(0,600):
+for k in range(0,200):
     if not v.is_active:
         break
 
@@ -61,9 +61,9 @@ for k in range(0,600):
         # # Use marching cubes to obtain the surface mesh of these ellipsoids
         # vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
 
-        vertices = np.load("../viz_results/3D/new_MPC/{}/fluid/vertices_new_2_frame_{}.npy".format(exp,k))
-        faces = np.load("../viz_results/3D/new_MPC/{}/fluid/faces_new_2_frame_{}.npy".format(exp,k))
-        normals = np.load("../viz_results/3D/new_MPC/{}/fluid/normals_new_2_frame_{}.npy".format(exp,k))
+        vertices = np.load("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k))
+        faces = np.load("../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k))
+        normals = np.load("../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k))
 
         tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
         # tm = trimesh.load_mesh("../viz_results/3D/new_MPC/fluid/frame_{}.ply".format(k))
@@ -113,4 +113,4 @@ v.close_external()
 while v.is_active:
     pass
 
-v.save_gif("./{}_new_2.gif".format(exp))
+v.save_gif("./{}.gif".format(exp))
