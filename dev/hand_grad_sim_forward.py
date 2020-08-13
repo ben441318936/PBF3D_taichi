@@ -4,7 +4,7 @@ import pickle
 
 time = 200
 
-sim = HandGradSim3D(max_timesteps=time, num_particles=1000, do_save_npy=True, do_emit=True)
+sim = HandGradSim3D(max_timesteps=time, num_particles=350, do_save_npy=True, do_emit=True)
 
 initial_pos0 = np.array([10.0, 10.0, 10.0])
 initial_vel0 = np.array([10.0, 0.0, 0.0])
@@ -33,7 +33,7 @@ initial_vel0 = np.array([10.0, 0.0, 0.0])
 
 board_states = np.zeros((time, 3))
 for i in range(time):
-    board_states[i,:] = np.array([7.5, 1, 15])
+    board_states[i,:] = np.array([7.5, 20, 15])
 
 sim.initialize(board_states=board_states)
 

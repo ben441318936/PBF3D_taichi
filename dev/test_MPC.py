@@ -2,14 +2,14 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 import pickle
 
-actual_sim = HandGradSim3D(max_timesteps=200, num_particles=350, do_save_npy=True, do_emit=True)
-aux_sim = HandGradSim3D(max_timesteps=10, num_particles=300, do_save_npy=False, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=300, num_particles=350, do_save_npy=True, do_emit=True)
+aux_sim = HandGradSim3D(max_timesteps=50, num_particles=350, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
 init_tool_states = np.zeros((aux_sim.max_timesteps, aux_sim.dim))
 for i in range(aux_sim.max_timesteps):
-    init_tool_states[i,:] = np.array([7.5, 1, 0])
+    init_tool_states[i,:] = np.array([1, 1, 1])
 best_states = init_tool_states.copy()
 best_point = best_states[1,:]
 
@@ -40,9 +40,11 @@ for i in range(100,actual_sim.max_timesteps):
     best_iter = 0   
     loss = best_loss
     k = 0
-    lr = 1e-1
+    lr = 1e-2
 
-    while loss > 1e-2 and k < 21:
+    old_best_point = best_point.copy()
+
+    while loss > 1e-2 and k < 51:
         # Clear the aux sim
         aux_sim.initialize(init_tool_states)
 
@@ -78,6 +80,8 @@ for i in range(100,actual_sim.max_timesteps):
         # print(tool_state_grads)
 
         init_tool_states -= lr * tool_state_grads
+        for l in range(init_tool_states.shape[0]):
+            init_tool_states[l,:] = aux_sim.confine_board_to_boundary(init_tool_states[l,:])
         # print(init_tool_states)
 
         k += 1
@@ -88,13 +92,18 @@ for i in range(100,actual_sim.max_timesteps):
     # Project the solved point
     # print(best_states)
     best_point = best_states[1,:]
+    dif = best_point - old_best_point
+    m = np.abs(np.max(dif))
+    if m >= 1:
+        dif = dif / m
+    best_point = old_best_point + dif
     # print(best_point)
     best_point = actual_sim.confine_board_to_boundary(best_point)
     # print(best_point)
 
     # Take the first step in the optimal trajectory will be used as init for future GD
     for j in range(0,aux_sim.max_timesteps):
-            init_tool_states[j,:] = best_point
+        init_tool_states[j,:] = best_point
 
     # The first step in the optimal trajectory will be taken to the actual sim
     print(best_point)

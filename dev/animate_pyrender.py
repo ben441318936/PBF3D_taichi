@@ -26,9 +26,9 @@ v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_t
 
 print("Viewport size:", v.viewport_size)
 
-exp = "exp8"
+exp = "exp15"
 
-for k in range(0,200):
+for k in range(0,300):
     if not v.is_active:
         break
 
@@ -58,7 +58,7 @@ for k in range(0,200):
 
         # padded_env = np.pad(smooth_env, 1, "constant", constant_values=0)
 
-        # # Use marching cubes to obtain the surface mesh of these ellipsoids
+        # Use marching cubes to obtain the surface mesh of these ellipsoids
         # vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
 
         vertices = np.load("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k))

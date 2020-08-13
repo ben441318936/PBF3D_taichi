@@ -1,7 +1,20 @@
 ## Work journal
 
 
-### Week of August 10th - August 10th, 2020
+### Week of August 10th - August 12th, 2020
+
+
+#### Aug. 12th
+- Suction control
+    - More tests reveal that tool always move to the same corner of the environment
+
+
+#### Aug. 11th
+- Suction control
+    - Better trajectory that seems to suction the fluid
+    - But it fails near the end
+
+
 #### Aug. 10th
 - Suction control
     - Implemented new smooth suction
