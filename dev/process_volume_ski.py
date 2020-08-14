@@ -4,9 +4,9 @@ from scipy.ndimage import gaussian_filter
 import trimesh
 import pyrender
 
-exp = "exp15"
+exp = "exp16"
 
-for k in range(0,300):
+for k in range(0,200):
 
     print("Preparing mesh {}".format(k))
 

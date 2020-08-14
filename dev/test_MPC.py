@@ -2,14 +2,14 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 import pickle
 
-actual_sim = HandGradSim3D(max_timesteps=300, num_particles=350, do_save_npy=True, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=101, num_particles=350, do_save_npy=True, do_emit=True)
 aux_sim = HandGradSim3D(max_timesteps=50, num_particles=350, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
 init_tool_states = np.zeros((aux_sim.max_timesteps, aux_sim.dim))
 for i in range(aux_sim.max_timesteps):
-    init_tool_states[i,:] = np.array([1, 1, 1])
+    init_tool_states[i,:] = np.array([1, 1, 12])
 best_states = init_tool_states.copy()
 best_point = best_states[1,:]
 
@@ -69,7 +69,7 @@ for i in range(100,actual_sim.max_timesteps):
 
         aux_sim.backward()
         tool_state_grads = aux_sim.board_states.grad.to_numpy()
-        # print(tool_state_grads)
+        print(tool_state_grads)
 
         for l in range(tool_state_grads.shape[0]):
             m = np.abs(np.max(tool_state_grads[l,:]))
