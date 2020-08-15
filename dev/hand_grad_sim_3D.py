@@ -728,51 +728,81 @@ class HandGradSim3D:
     def spiky_gradient_backward(self, r, h):
         jacobian = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
         c = 1
-        r_len = r.norm()
-        if 0 < r_len and r_len < h:
+        l = r.norm()
+        if 0 < l and l < h:
             f = ti.static(self.spiky_grad_factor)
             # d Gx / dx
-            jacobian[0,0] =   f / h**4 / r_len \
-                            - f / h**4 * r[0]**2 / r_len**3 \
-                            - 2 * f / h**5 \
-                            + f * r_len \
-                            + f * r[0] / r_len  
+            # jacobian[0,0] =   f / h**4 / r_len \
+            #                 - f / h**4 * r[0]**2 / r_len**3 \
+            #                 - 2 * f / h**5 \
+            #                 + f * r_len \
+            #                 + f * r[0] / r_len  
+            jacobian[0,0] = f / h**6 * ( \
+                            (h-l)**2 / l \
+                            - 2 * r[0]**2 * (h-l) / l**2 \
+                            - r[0]**2 * (h-l)**2 / l**3)
             # d Gx / dy
-            jacobian[1,0] = - f / h**4 * r[0] * r[1] / r_len**3 \
-                            + f * r[0] * r[1] / r_len
+            # jacobian[1,0] = - f / h**4 * r[0] * r[1] / r_len**3 \
+            #                 + f * r[0] * r[1] / r_len
+            jacobian[1,0] = f / h**6 * ( \
+                            - 2 * r[0] * r[1] * (h-l) / l**2 \
+                            - r[0] * r[1] * (h-l)**2 / l**2)
             # d Gx / dz
-            jacobian[2,0] = - f / h**4 * r[0] * r[2] / r_len**3 \
-                            + f * r[0] * r[2] / r_len
+            # jacobian[2,0] = - f / h**4 * r[0] * r[2] / r_len**3 \
+            #                 + f * r[0] * r[2] / r_len
+            jacobian[2,0] = f / h**6 * ( \
+                            - 2 * r[0] * r[2] * (h-l) / l**2 \
+                            - r[0] * r[2] * (h-l)**2 / l**2)
             # d Gy / dx
-            jacobian[0,1] = - f / h**4 * r[1] * r[0] / r_len**3 \
-                            + f * r[1] * r[0] / r_len
+            # jacobian[0,1] = - f / h**4 * r[1] * r[0] / r_len**3 \
+            #                 + f * r[1] * r[0] / r_len
+            jacobian[0,1] = f / h**6 * ( \
+                            - 2 * r[1] * r[0] * (h-l) / l**2 \
+                            - r[1] * r[0] * (h-l)**2 / l**2)
             # d Gy / dy
-            jacobian[1,1] =   f / h**4 / r_len \
-                            - f / h**4 * r[1]**2 / r_len**3 \
-                            - 2 * f / h**5 \
-                            + f * r_len \
-                            + f * r[1] / r_len
+            # jacobian[1,1] =   f / h**4 / r_len \
+            #                 - f / h**4 * r[1]**2 / r_len**3 \
+            #                 - 2 * f / h**5 \
+            #                 + f * r_len \
+            #                 + f * r[1] / r_len
+            jacobian[1,1] = f / h**6 * ( \
+                            (h-l)**2 / l \
+                            - 2 * r[1]**2 * (h-l) / l**2 \
+                            - r[1]**2 * (h-l)**2 / l**3)
             # d Gy / dz
-            jacobian[2,1] = - f / h**4 * r[1] * r[2] / r_len**3 \
-                            + f * r[1] * r[2] / r_len
+            # jacobian[2,1] = - f / h**4 * r[1] * r[2] / r_len**3 \
+            #                 + f * r[1] * r[2] / r_len
+            jacobian[2,1] = f / h**6 * ( \
+                            - 2 * r[1] * r[2] * (h-l) / l**2 \
+                            - r[1] * r[2] * (h-l)**2 / l**2)
             # d Gz / dx
-            jacobian[0,2] = - f / h**4 * r[2] * r[0] / r_len**3 \
-                            + f * r[2] * r[0] / r_len
+            # jacobian[0,2] = - f / h**4 * r[2] * r[0] / r_len**3 \
+            #                 + f * r[2] * r[0] / r_len
+            jacobian[0,2] = f / h**6 * ( \
+                            - 2 * r[2] * r[0] * (h-l) / l**2 \
+                            - r[2] * r[0] * (h-l)**2 / l**2)
             # d Gz / dy
-            jacobian[1,2] = - f / h**4 * r[2] * r[1] / r_len**3 \
-                            + f * r[2] * r[1] / r_len   
+            # jacobian[1,2] = - f / h**4 * r[2] * r[1] / r_len**3 \
+            #                 + f * r[2] * r[1] / r_len
+            jacobian[1,2] = f / h**6 * ( \
+                            - 2 * r[2] * r[1] * (h-l) / l**2 \
+                            - r[2] * r[1] * (h-l)**2 / l**2) 
             # d Gy / dy
-            jacobian[2,2] =   f / h**4 / r_len \
-                            - f / h**4 * r[2]**2 / r_len**3 \
-                            - 2 * f / h**5 \
-                            + f * r_len \
-                            + f * r[2] / r_len          
-        # for i in ti.static(range(self.dim)):
-        #     for j in ti.static(range(self.dim)):
-        #         if jacobian[i,j] >= c:
-        #             jacobian[i,j] = c
-        #         if jacobian[i,j] <= -c:
-        #             jacobian[i,j] = -c
+            # jacobian[2,2] =   f / h**4 / r_len \
+            #                 - f / h**4 * r[2]**2 / r_len**3 \
+            #                 - 2 * f / h**5 \
+            #                 + f * r_len \
+            #                 + f * r[2] / r_len
+            jacobian[2,2] = f / h**6 * ( \
+                            (h-l)**2 / l \
+                            - 2 * r[2]**2 * (h-l) / l**2 \
+                            - r[2]**2 * (h-l)**2 / l**3)       
+        for i in ti.static(range(self.dim)):
+            for j in ti.static(range(self.dim)):
+                if jacobian[i,j] >= c:
+                    jacobian[i,j] = c
+                if jacobian[i,j] <= -c:
+                    jacobian[i,j] = -c
         return jacobian
 
     # Use s^2 = |r|^2 for easier differentiation
@@ -792,11 +822,11 @@ class HandGradSim3D:
         #s_sqr = r.norm()**2
         if 0 < s_sqr and s_sqr < h**2:
             out_grad = self.poly6_factor / h**9 * 3 * (h**2 - s_sqr) #* ti.Vector([1.0, 1.0])
-            c = 1
-            if out_grad >= c:
-                out_grad = c
-            elif out_grad <= -c:
-                out_grad = -c
+            # c = 1
+            # if out_grad >= c:
+            #     out_grad = c
+            # elif out_grad <= -c:
+            #     out_grad = -c
             return out_grad
         else:
             return 0.0
@@ -847,12 +877,12 @@ class HandGradSim3D:
 
             grad_to_lambda_i = self.lambdas.grad[frame,it,i]
 
-            c = 1
+            # c = 1
 
-            if grad_to_lambda_i >= c:
-                grad_to_lambda_i = c
-            elif grad_to_lambda_i <= -c:
-                grad_to_lambda_i = -c
+            # if grad_to_lambda_i >= c:
+            #     grad_to_lambda_i = c
+            # elif grad_to_lambda_i <= -c:
+            #     grad_to_lambda_i = -c
             # print("Frame", frame, "particle", i, grad_to_lambda_i)
 
             for j in range(self.particle_num_neighbors[frame, i]):
@@ -870,15 +900,21 @@ class HandGradSim3D:
             density_constraint = (self.mass * density_constraint / self.rho0) - 1.0
             sum_gradient_sqr += grad_i.dot(grad_i)
 
-            lambda_to_SGS = density_constraint / (sum_gradient_sqr + self.epsilon)**2
-            lambda_to_constraint = -1 / (sum_gradient_sqr + self.epsilon)
+            # print("density_constraint")
+            # print(density_constraint)
+
+            # print("sum_gradient_sqr")
+            # print(sum_gradient_sqr)
+
+            lambda_to_SGS = -density_constraint / (sum_gradient_sqr + self.lambda_epsilon)**2
+            lambda_to_constraint = -1 / (sum_gradient_sqr + self.lambda_epsilon)
 
             # There is contribution to pos_i from the spiky computation of each neighbor
             SGS_to_pos_i = ti.Vector([0.0, 0.0, 0.0])
             # There is contribution to pos_i from the poly6 computation of each neighbor
             constraint_to_pos_i = ti.Vector([0.0, 0.0, 0.0])
 
-            constraint_to_val = self.rho0 / self.mass
+            constraint_to_val = -1 * self.mass / self.rho0
 
             for j in range(self.particle_num_neighbors[frame, i]):
                 p_j = self.particle_neighbors[frame, i, j]
@@ -899,6 +935,21 @@ class HandGradSim3D:
                     self.positions_iter.grad[frame,it,p_j] += -1 * constraint_to_r_ji * lambda_to_constraint * grad_to_lambda_i
                     # For every poly6 value computation, there is a constribution to pos_i
                     constraint_to_pos_i += constraint_to_r_ji
+
+            # print("SGS_to_pos_i")
+            # print(SGS_to_pos_i)
+
+            # print("lambda_to_SGS") # Big
+            # print(lambda_to_SGS)
+
+            # print("constraint_to_pos_i")
+            # print(constraint_to_pos_i)
+
+            # print("lambda_to_constraint") # Big
+            # print(lambda_to_constraint)
+
+            # print("grad_to_lambda_i")
+            # print(grad_to_lambda_i)
 
             # Sum the contribution from the SGS and constraint paths
             self.positions_iter.grad[frame,it,i] += (SGS_to_pos_i * lambda_to_SGS \
@@ -1108,17 +1159,27 @@ class HandGradSim3D:
 
         
     def backward_step(self, frame):
+        print("Frame",frame)
         self.update_velocity_backward(frame)
 
         self.prop_resting_backward(frame)
         self.apply_suction_backward(frame)
 
         self.apply_final_position_deltas_backward(frame)
+        grad = self.positions_iter.grad.to_numpy()
+        print(grad[frame,self.pbf_num_iters,:])
+
         for it in reversed(range(self.pbf_num_iters)):
             self.clear_local_grads()
             self.apply_position_deltas_backward(frame,it)
             self.compute_position_deltas_backward(frame,it)
             self.compute_lambdas_backward(frame,it)
+            grad = self.positions_iter.grad.to_numpy()
+            print("Pos iter grad")
+            print(grad[frame,it,:])
+            grad = self.lambdas.grad.to_numpy()
+            print("lambdas grad")
+            print(grad[frame,it,:])
 
         self.gravity_backward(frame)
 

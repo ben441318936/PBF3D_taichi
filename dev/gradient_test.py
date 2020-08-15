@@ -1,17 +1,17 @@
 from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 
-time = 4
+time = 2
 
 sim = HandGradSim3D(max_timesteps=time, num_particles=5, do_save_npy=True, do_emit=False)
 
-start = 9
-spacing = 0.5
+start = 4.0
+spacing = 1.0
 
-initial_pos = np.array([[10, 10, start],
-                        [10, 10, start + spacing],
-                        [10, 10, start + 2*spacing],
-                        [10, 10, start + 3*spacing]])
+initial_pos = np.array([[10, 10, start + 0 * spacing],
+                        [10, 10, start + 1 * spacing],
+                        [10, 10, start + 3 * spacing],
+                        [10, 10, start + 4 * spacing]], dtype=np.float)
 
 initial_vel = np.array([[10, 0, 5],
                         [10, 0, 5],
@@ -22,21 +22,41 @@ lr = 1e-1
 loss = 100
 k = 0
 
-while loss > 1e-2 and k < 30:
+while loss > 1e-2 and k < 1:
     print("Iteration", k)
 
     sim.initialize()
     sim.emit_particles(4, 0, initial_pos, initial_vel)
 
     sim.forward()
-    print(sim.loss[None])
+    print("Loss:", sim.loss[None])
     positions = sim.positions.to_numpy()
+    print("Final pos")
     print(positions[time-1,:,:])
 
     sim.backward()
 
-    position_grads = sim.positions.grad.to_numpy()
-    print(position_grads[0,:,:])
+    # pos_iter_grads = sim.positions_iter.grad.to_numpy()
+    # delta_grads = sim.position_deltas.grad.to_numpy()
+    # position_grads = sim.positions.grad.to_numpy()
+
+    # for j in reversed(range(0,time)):
+    #     print("Frame", j)
+    #     print("Pos grads")
+    #     print(position_grads[j,:,:])
+
+    #     for i in reversed(range(0,3)):
+    #         print("Iter", i)
+
+    #         print("Pos iter grads")
+    #         print(pos_iter_grads[j,i,:])
+            
+    #         print("Delta grads")
+    #         print(delta_grads[j,i,:])
+        
+    
+    # print("Pos grads")
+    # print(position_grads[0,:,:])
 
     position_grads = np.clip(position_grads, -10, 10)
 
