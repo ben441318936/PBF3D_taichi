@@ -1,12 +1,12 @@
 from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 
-time = 2
+time = 5
 
 sim = HandGradSim3D(max_timesteps=time, num_particles=5, do_save_npy=True, do_emit=False)
 
 start = 4.0
-spacing = 1.0
+spacing = 0.5
 
 initial_pos = np.array([[10, 10, start + 0 * spacing],
                         [10, 10, start + 1 * spacing],

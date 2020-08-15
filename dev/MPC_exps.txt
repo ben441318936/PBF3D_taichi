@@ -1,3 +1,7 @@
 8, 9, 10: time weighted loss
 11, 12: removed time weighted loss
 13, 14, 15: moved suction to the end of the simulation step
+
+17, 18, 19: after gradient fix
+
+20, 21: more depth of fluids

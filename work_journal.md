@@ -1,7 +1,13 @@
 ## Work journal
 
 
-### Week of August 10th - August 12th, 2020
+### Week of August 10th - August 14th, 2020
+
+
+#### Aug. 14th
+- Suction control
+    - Gradient debugging, discovered bug that caused the gradients to explode
+    - Re-run MPC tests
 
 
 #### Aug. 12th
