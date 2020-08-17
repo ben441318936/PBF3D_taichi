@@ -1,6 +1,13 @@
 ## Work journal
 
 
+### Week of August 17th - August 17th, 2020
+
+
+#### Aug. 17th
+- Suction control
+
+
 ### Week of August 10th - August 14th, 2020
 
 
