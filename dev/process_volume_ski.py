@@ -4,7 +4,7 @@ from scipy.ndimage import gaussian_filter
 import trimesh
 import pyrender
 
-exp = "exp21"
+exp = "exp26"
 
 for k in range(0,300):
 

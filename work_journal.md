@@ -6,6 +6,8 @@
 
 #### Aug. 17th
 - Suction control
+    - Added geometric obstacle in scene
+    - The suction trajectory seems good
 
 
 ### Week of August 10th - August 14th, 2020
