@@ -35,9 +35,9 @@ v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_t
 
 print("Viewport size:", v.viewport_size)
 
-exp = "exp26"
+exp = "exp28"
 
-for k in range(0,300):
+for k in range(0,600):
     if not v.is_active:
         break
 

@@ -207,7 +207,7 @@ class HandGradSim3D:
     def confine_position_to_boundary_forward(self, p):
         # Global boundaries
         bmin = self.particle_radius
-        bmax = ti.Vector([self.boundary[0], self.boundary[1]+100, self.boundary[2]]) - self.particle_radius
+        bmax = ti.Vector([self.boundary[0], self.boundary[1], self.boundary[2]]) - self.particle_radius
 
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
@@ -292,8 +292,10 @@ class HandGradSim3D:
         box_back = box_pos[2] - box_dims[2]
         box_left = box_pos[0]
         box_right = box_pos[0] + box_dims[0]
+        box_bot = box_pos[1]
+        box_top = box_pos[1] + box_dims[1]
 
-        if p[0] >= box_left and p[0] <= box_right and p[2] <= box_front and p[2] >= box_back:
+        if p[0] >= box_left and  p[0] <= box_right and p[1] >= box_bot and p[1] <= box_top and p[2] <= box_front and p[2] >= box_back:
             # d = ti.Vector([0.0, 0.0, 0.0])
             # d[0] = ti.abs(p[0] - box_right)
             # d[1] = ti.abs(p[2] - box_front)
@@ -997,9 +999,9 @@ class HandGradSim3D:
             if n != 0:
                 for i in range(self.num_particles):
                     if self.particle_active[f,i] == 1:
-                        if self.positions[f,i][1] <= 100:
+                        if self.positions[f,i][1] <= self.boundary[1]-1:
                             # target = ti.Vector([12, 10, 12])
-                            d = 0.5 * (100 - self.positions[f,i][1])**2
+                            d = 0.5 * (self.boundary[1]-1 - self.positions[f,i][1])**2
                             # dif = target - self.positions[f,i]
                             # d = 0.5 * dif.norm()**2
                             if d > 0:
@@ -1015,8 +1017,8 @@ class HandGradSim3D:
             if n != 0:
                 for i in range(self.num_particles):
                     if self.particle_active[f,i] == 1:
-                        if self.positions[f,i][1] <= 100:
-                            dif = 100 - self.positions[f,i][1]
+                        if self.positions[f,i][1] <= self.boundary[1]-1:
+                            dif = self.boundary[1]-1 - self.positions[f,i][1]
                             d = 0.5 * (dif)**2
                             # target = ti.Vector([12, 10, 12])
                             # dif = target - self.positions[f,i]
@@ -1200,9 +1202,9 @@ class HandGradSim3D:
         active = self.particle_active.to_numpy()[frame,:]
         # inds = np.logical_or(active == 1, active == 2)
         inds = active == 1
-        np.save("../viz_results/3D/new_MPC/exp26/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp28/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.tool_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp26/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp28/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
