@@ -2,8 +2,8 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 import pickle
 
-actual_sim = HandGradSim3D(max_timesteps=600, num_particles=1700, do_save_npy=True, do_emit=True)
-aux_sim = HandGradSim3D(max_timesteps=10, num_particles=1700, do_save_npy=False, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=300, num_particles=800, do_save_npy=True, do_emit=True)
+aux_sim = HandGradSim3D(max_timesteps=10, num_particles=800, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 

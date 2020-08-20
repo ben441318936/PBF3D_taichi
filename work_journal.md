@@ -1,7 +1,13 @@
 ## Work journal
 
 
-### Week of August 17th - August 18th, 2020
+### Week of August 17th - August 19th, 2020
+
+
+#### Aug. 19th
+- PyFlex render
+    - Did some simple tests to have PyFlex render particles with external position information
+    - Making a custom scene that can be easily changed to match simulation in Python without recompiling C++
 
 
 #### Aug. 18th
