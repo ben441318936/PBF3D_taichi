@@ -1,7 +1,15 @@
 ## Work journal
 
 
-### Week of August 17th - August 19th, 2020
+### Week of August 17th - August 20th, 2020
+
+
+#### Aug. 20th
+- PyFlex render
+    - Can load simulated particle positions, render, and save results
+    - Has a problem where the particle size is much smaller in Flex compared to our own PBF
+    - This results in the particles being too sparse
+    - Increasing rest density of the fluid in our own simulation can make the fluid less sparse, but they still show up as individual drops
 
 
 #### Aug. 19th

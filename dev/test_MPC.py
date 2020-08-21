@@ -18,10 +18,10 @@ actual_sim.initialize()
 actual_sim.init_step()
 
 # Run the main sim for some time to fill up particles
-for i in range(1,300):
+for i in range(1,100):
     actual_sim.take_action(i, np.array([10.0, 20.0, 10.0]))
 
-for i in range(300,actual_sim.max_timesteps):
+for i in range(100,actual_sim.max_timesteps):
     print("Finding action", i)
     # actual_sim.take_action(i,np.array([10.0, 20.0]))
 

@@ -19,9 +19,10 @@ class HandGradSim3D:
         self.do_save_npy = do_save_npy
         self.do_render = do_render
 
-        self.boundary = np.array([15.0, 20.0, 15.0])
+        self.boundary = np.array([10.0, 20.0, 10.0])
 
-        self.cell_size = 2.51
+        # self.cell_size = 2.51
+        self.cell_size = 2
         self.cell_recpr = 1.0 / self.cell_size
 
         def round_up(f, s):
@@ -36,15 +37,15 @@ class HandGradSim3D:
         self.particle_radius = 0.3
 
         # PBF params
-        self.h = 1.1
-        self.mass = 1.0
-        self.rho0 = 1.0
+        self.h = 0.5
+        self.mass = 1
+        self.rho0 = 10.0
         self.lambda_epsilon = 100.0
         self.vorticity_epsilon = 0.01
         self.viscosity_c = 0.1
         self.pbf_num_iters = 3
-        self.corr_deltaQ_coeff = 0.3
-        self.corrK = 0.001
+        self.corr_deltaQ_coeff = self.particle_radius
+        self.corrK = 0.01
         # Need ti.pow()
         # corrN = 4.0
         self.neighbor_radius = self.h * 1.05
@@ -221,8 +222,8 @@ class HandGradSim3D:
     @ti.func
     def confine_position_to_box_forward(self, p):
         # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 10.0])
-        box_dims = ti.Vector([10.0, 20.0, 5.0])
+        box_pos = ti.Vector([0.0, 0.0, 7.0])
+        box_dims = ti.Vector([7.0, 20.0, 4.0])
 
         box_front = box_pos[2]
         box_back = box_pos[2] - box_dims[2]
@@ -285,8 +286,8 @@ class HandGradSim3D:
         jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
 
         # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 10.0])
-        box_dims = ti.Vector([10.0, 20.0, 5.0])
+        box_pos = ti.Vector([0.0, 0.0, 7.0])
+        box_dims = ti.Vector([7.0, 20.0, 4.0])
 
         box_front = box_pos[2]
         box_back = box_pos[2] - box_dims[2]
@@ -1202,9 +1203,9 @@ class HandGradSim3D:
         active = self.particle_active.to_numpy()[frame,:]
         # inds = np.logical_or(active == 1, active == 2)
         inds = active == 1
-        np.save("../viz_results/3D/new_MPC/exp28/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp31/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.tool_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp28/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp31/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
