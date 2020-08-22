@@ -1,7 +1,7 @@
 ## Work journal
 
 
-### Week of August 17th - August 20th, 2020
+### Week of August 17th - August 21st, 2020
 
 
 #### Aug. 20th

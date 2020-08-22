@@ -4,13 +4,13 @@ from scipy.ndimage import gaussian_filter
 import trimesh
 import pyrender
 
-exp = "exp29"
+exp = "exp32"
 
 for k in range(0,300):
 
     print("Preparing mesh {}".format(k))
 
-    boundary = np.array([15.0, 20.0, 15.0])
+    boundary = np.array([3.0, 3.0, 3.0])
 
     pts = np.load("../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
     tool_pos = np.load("../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
