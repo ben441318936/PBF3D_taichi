@@ -1,7 +1,23 @@
 ## Work journal
 
 
+### Week of August 24th- August 24th, 2020
+- PyFlex render
+    - Implemented cohesion forces, which was important in creating smooth fluid surfaces with surface tension
+    - Cohesion forces seems to solve the boundary issues and particle clumping and produces better looking fluids
+- Suction control
+    - Some exploding gradient issues after down scaling and cohesion implementation
+    - So far the problem has been isolated to the the down-scaled suction fields, likely the gradients are exploding due to very sharp changes in the sigmoids
+
+
+
 ### Week of August 17th - August 21st, 2020
+
+
+#### Aug. 21st
+- PyFlex render
+    - Tuning simulation parameters to have btter visualization
+    - Problem is most likely caused by boundary conditions
 
 
 #### Aug. 20th

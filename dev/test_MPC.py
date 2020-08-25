@@ -2,14 +2,14 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 import pickle
 
-actual_sim = HandGradSim3D(max_timesteps=300, num_particles=1500, do_save_npy=True, do_emit=True)
-aux_sim = HandGradSim3D(max_timesteps=10, num_particles=1500, do_save_npy=False, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=301, num_particles=3600, do_save_npy=True, do_emit=True)
+aux_sim = HandGradSim3D(max_timesteps=10, num_particles=3600, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
 init_tool_states = np.zeros((aux_sim.max_timesteps, aux_sim.dim))
 for i in range(aux_sim.max_timesteps):
-    init_tool_states[i,:] = np.array([1, 0, 3])
+    init_tool_states[i,:] = np.array([0.1, 0.0, 3])
 best_states = init_tool_states.copy()
 best_point = best_states[1,:]
 
@@ -18,10 +18,10 @@ actual_sim.initialize()
 actual_sim.init_step()
 
 # Run the main sim for some time to fill up particles
-for i in range(1,100):
-    actual_sim.take_action(i, np.array([10.0, 20.0, 10.0]))
+for i in range(1,300):
+    actual_sim.take_action(i, np.array([3.0, 3.0, 3.0]))
 
-for i in range(100,actual_sim.max_timesteps):
+for i in range(300,actual_sim.max_timesteps):
     print("Finding action", i)
     # actual_sim.take_action(i,np.array([10.0, 20.0]))
 
@@ -43,7 +43,7 @@ for i in range(100,actual_sim.max_timesteps):
 
     old_best_point = best_point.copy()
 
-    while loss > 1e-2 and k < 21:
+    while loss > 1e-2 and k < 1:
         # Clear the aux sim
         aux_sim.initialize(init_tool_states)
 
@@ -67,7 +67,7 @@ for i in range(100,actual_sim.max_timesteps):
 
         aux_sim.backward()
         tool_state_grads = aux_sim.tool_states.grad.to_numpy()
-        # print(tool_state_grads)
+        print(tool_state_grads)
 
         # for l in range(tool_state_grads.shape[0]):
         #     m = np.abs(np.max(tool_state_grads[l,:]))

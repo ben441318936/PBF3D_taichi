@@ -1,17 +1,17 @@
 from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 
-time = 5
+time = 10
 
 sim = HandGradSim3D(max_timesteps=time, num_particles=5, do_save_npy=True, do_emit=False)
 
-start = 4.0
-spacing = 0.5
+start = 0.1
+spacing = 0.1
 
-initial_pos = np.array([[10, 10, start + 0 * spacing],
-                        [10, 10, start + 1 * spacing],
-                        [10, 10, start + 3 * spacing],
-                        [10, 10, start + 4 * spacing]], dtype=np.float)
+initial_pos = np.array([[0.1, 1, start + 0 * spacing],
+                        [0.1, 1, start + 1 * spacing],
+                        [0.1, 1, start + 3 * spacing],
+                        [0.1, 1, start + 4 * spacing]], dtype=np.float)
 
 initial_vel = np.array([[10, 0, 5],
                         [10, 0, 5],
@@ -36,27 +36,27 @@ while loss > 1e-2 and k < 1:
 
     sim.backward()
 
-    # pos_iter_grads = sim.positions_iter.grad.to_numpy()
-    # delta_grads = sim.position_deltas.grad.to_numpy()
-    # position_grads = sim.positions.grad.to_numpy()
+    pos_iter_grads = sim.positions_iter.grad.to_numpy()
+    delta_grads = sim.position_deltas.grad.to_numpy()
+    position_grads = sim.positions.grad.to_numpy()
 
-    # for j in reversed(range(0,time)):
-    #     print("Frame", j)
-    #     print("Pos grads")
-    #     print(position_grads[j,:,:])
+    for j in reversed(range(0,time)):
+        print("Frame", j)
+        print("Pos grads")
+        print(position_grads[j,:,:])
 
-    #     for i in reversed(range(0,3)):
-    #         print("Iter", i)
+        for i in reversed(range(0,3)):
+            print("Iter", i)
 
-    #         print("Pos iter grads")
-    #         print(pos_iter_grads[j,i,:])
+            print("Pos iter grads")
+            print(pos_iter_grads[j,i,:])
             
-    #         print("Delta grads")
-    #         print(delta_grads[j,i,:])
+            print("Delta grads")
+            print(delta_grads[j,i,:])
         
     
-    # print("Pos grads")
-    # print(position_grads[0,:,:])
+    print("Pos grads")
+    print(position_grads[0,:,:])
 
     position_grads = np.clip(position_grads, -10, 10)
 
