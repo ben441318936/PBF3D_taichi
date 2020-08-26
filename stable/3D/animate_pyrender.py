@@ -19,14 +19,22 @@ tfs = np.tile(np.eye(4), (1, 1, 1))
 tfs[:,:3,3] = np.array([[5,25,-5]])
 m = pyrender.Mesh.from_trimesh(sm, poses=tfs)
 nt = pyrender.Node(mesh=m, matrix=np.eye(4), name="tool")
+# Obstacle node
+sm = trimesh.creation.box(np.array([100.0, 50.0, 50.0]))
+sm.visual.vertex_colors = [0.0, 1.0, 0.0, 0.1]
+tfs = np.tile(np.eye(4), (1, 1, 1))
+tfs[:,:3,3] = np.array([[50,25,-25]])
+m = pyrender.Mesh.from_trimesh(sm, poses=tfs)
+nb = pyrender.Node(mesh=m, matrix=np.eye(4), name="box")
 
 scene.add_node(nm)
 scene.add_node(nt)
+scene.add_node(nb)
 v = pyrender.Viewer(scene, use_raymond_lighting=True, cull_faces=False, run_in_thread=True, record=True)
 
 print("Viewport size:", v.viewport_size)
 
-exp = "exp21"
+exp = "exp33"
 
 for k in range(0,300):
     if not v.is_active:
@@ -36,8 +44,8 @@ for k in range(0,300):
 
     boundary = np.array([15.0, 20.0, 15.0])
 
-    pts = np.load("../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
-    tool_pos = np.load("../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
+    pts = np.load("../../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
+    tool_pos = np.load("../../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
 
     if pts.shape[0] > 0:
 
@@ -61,9 +69,9 @@ for k in range(0,300):
         # Use marching cubes to obtain the surface mesh of these ellipsoids
         # vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
 
-        vertices = np.load("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k))
-        faces = np.load("../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k))
-        normals = np.load("../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k))
+        vertices = np.load("../../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k))
+        faces = np.load("../../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k))
+        normals = np.load("../../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k))
 
         tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
         # tm = trimesh.load_mesh("../viz_results/3D/new_MPC/fluid/frame_{}.ply".format(k))
@@ -92,6 +100,13 @@ for k in range(0,300):
         nodes = scene.get_nodes(name="tool")
         for n in nodes:
             scene.set_pose(n, pose2)
+        # Set rotation pose for box obstacle
+        pose3 = np.eye(4)
+        pose3[0:3,3] = 10 * np.array([0, 0, 10])
+        pose3 = pose1 @ pose3
+        nodes = scene.get_nodes(name="box")
+        for n in nodes:
+            scene.set_pose(n, pose3)
 
         # nodes = scene.camera_nodes
         # for n in nodes:

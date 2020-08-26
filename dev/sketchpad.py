@@ -11,21 +11,21 @@ fig = plt.figure()
 ax = fig.gca(projection='3d')
 
 # Make data.
-X = np.arange(-5, 5, 0.01)
-Y = np.arange(-5, 5, 0.01)
+X = np.arange(-3, 3, 0.01)
+Y = np.arange(-3, 3, 0.01)
 X, Y = np.meshgrid(X, Y)
 
-x_var = 1
-z_var = 1
+x_var = 0.03
+z_var = 0.03
 
-Z = ((2*np.pi)**2 * x_var * z_var)**(-1/2) * np.exp(-1/2 * (X**2/x_var + Y**2/z_var) ) * 100
+Z = ((2*np.pi)**2 * x_var * z_var)**(-1/2) * np.exp(-1/2 * (X**2/x_var + Y**2/z_var) ) * 0.5
 
 # Plot the surface.
 surf = ax.plot_surface(X, Y, Z, cmap=cm.coolwarm,
                        linewidth=0, antialiased=False)
 
 # Customize the z axis.
-ax.set_zlim(-1.01, 50)
+ax.set_zlim(-1.01, 3)
 ax.zaxis.set_major_locator(LinearLocator(10))
 ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
 

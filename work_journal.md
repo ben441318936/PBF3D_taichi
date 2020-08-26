@@ -1,7 +1,15 @@
 ## Work journal
 
 
-### Week of August 24th- August 24th, 2020
+### Week of August 24th - August 25th, 2020
+
+
+#### Aug. 25th
+- Suction control
+    - The exploding gradient is due to the h parameter being too small, which was changed when we saled down the simulation
+
+
+#### Aug. 24th
 - PyFlex render
     - Implemented cohesion forces, which was important in creating smooth fluid surfaces with surface tension
     - Cohesion forces seems to solve the boundary issues and particle clumping and produces better looking fluids

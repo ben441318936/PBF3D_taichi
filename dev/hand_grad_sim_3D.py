@@ -19,10 +19,10 @@ class HandGradSim3D:
         self.do_save_npy = do_save_npy
         self.do_render = do_render
 
-        self.boundary = np.array([3.0, 3.0, 3.0])
+        self.boundary = np.array([15.0, 20.0, 15.0])
 
-        # self.cell_size = 2.51
-        self.cell_size = 0.6
+        self.cell_size = 2.51
+        # self.cell_size = 0.6
         self.cell_recpr = 1.0 / self.cell_size
 
         def round_up(f, s):
@@ -33,17 +33,17 @@ class HandGradSim3D:
         self.max_num_particles_per_cell = 200
         self.max_num_neighbors = 200
 
-        self.epsilon = 0.001
+        self.epsilon = 1e-5
         self.particle_radius = 0.1
 
         # PBF params
-        self.h = 0.3
+        self.h = 1.1
         self.mass = 1
-        self.rho0 = 300.0
+        self.rho0 = 2.0
         self.lambda_epsilon = 100.0
         self.vorticity_epsilon = 0.01
-        self.viscosity_c = 1e-4
-        self.cohesion_gamma = 0#9e-2
+        self.viscosity_c = 0 #1e-4
+        self.cohesion_gamma = 50
         self.pbf_num_iters = 3
         self.corr_deltaQ_coeff = 0.3
         self.corrK = 0.001
@@ -56,11 +56,11 @@ class HandGradSim3D:
         self.viscosity_factor = 15 / 2 / np.pi
         self.cohesion_kernel_factor = 32 / np.pi / self.h**9
 
-        self.inside_x_var = 0.1
-        self.inside_z_var = 0.1
-        self.gating_x_sig = 0.1
-        self.gating_y_sig = 0.1
-        self.gating_z_sig = 0.1
+        self.inside_x_var = 0.5
+        self.inside_z_var = 0.5
+        self.gating_x_sig = 0.5
+        self.gating_y_sig = 0.5
+        self.gating_z_sig = 0.5
 
         self.target = ti.Vector(self.dim, ti.f32)
 
@@ -169,7 +169,7 @@ class HandGradSim3D:
         self.clear_neighbor_info()
         # Temporary hardcoded values here
         self.tool_states.fill(100.0)
-        self.init_tool_dim(np.array([0.5, 3.0, 0.5]))
+        self.init_tool_dim(np.array([1.0, 5.0, 1.0]))
         if tool_states is not None:
             self.init_tool(tool_states)
 
@@ -216,7 +216,7 @@ class HandGradSim3D:
     def confine_position_to_boundary_forward(self, p):
         # Global boundaries
         bmin = self.particle_radius
-        bmax = ti.Vector([self.boundary[0], self.boundary[1], self.boundary[2]]) - self.particle_radius
+        bmax = ti.Vector([self.boundary[0], self.boundary[1]+100, self.boundary[2]]) - self.particle_radius
 
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
@@ -230,8 +230,8 @@ class HandGradSim3D:
     @ti.func
     def confine_position_to_box_forward(self, p):
         # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 2.0])
-        box_dims = ti.Vector([2.0, 20.0, 1.0])
+        box_pos = ti.Vector([0.0, 0.0, 10.0])
+        box_dims = ti.Vector([10.0, 20.0, 5.0])
 
         box_front = box_pos[2]
         box_back = box_pos[2] - box_dims[2]
@@ -243,24 +243,6 @@ class HandGradSim3D:
         new_p = p
 
         if p[0] >= box_left and  p[0] <= box_right and p[1] >= box_bot and p[1] <= box_top and p[2] <= box_front and p[2] >= box_back:
-            # d = ti.Vector([0.0, 0.0, 0.0])
-            # d[0] = box_right - p[0]
-            # d[1] = box_front - p[2] 
-            # d[2] = p[2] - box_back
-
-            # min_d = d[0]
-            # ind = 0
-
-            # for k in ti.static(range(3)):
-            #     if d[k] <= min_d:
-            #         ind = k
-
-            # if ind == 0:
-            #     new_p[0] = box_right + self.epsilon * ti.random()
-            # if ind == 1:
-            #     new_p[2] = box_front + self.epsilon * ti.random()
-            # if ind == 2:
-            #     new_p[2] = box_back - self.epsilon * ti.random()
 
             d_right = box_right - p[0]
             d_front = box_front - p[2]
@@ -294,8 +276,8 @@ class HandGradSim3D:
         jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
 
         # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 2.0])
-        box_dims = ti.Vector([2.0, 20.0, 1.0])
+        box_pos = ti.Vector([0.0, 0.0, 10.0])
+        box_dims = ti.Vector([5.0, 20.0, 5.0])
 
         box_front = box_pos[2]
         box_back = box_pos[2] - box_dims[2]
@@ -365,8 +347,8 @@ class HandGradSim3D:
                 pos = self.positions_after_grav_bounds[frame, i]
                 jacobian_box = self.confine_position_to_box_backward(pos)
 
-                self.positions.grad[frame-1,i] += jacobian_box @ jacobian_bounds @ self.positions_after_grav_final.grad[frame,i]
-                self.velocities.grad[frame-1,i] += jacobian_box @ jacobian_bounds @ self.positions_after_grav_final.grad[frame,i] * self.delta_t
+                self.positions.grad[frame-1,i] += jacobian_bounds @ jacobian_box @ self.positions_after_grav_final.grad[frame,i]
+                self.velocities.grad[frame-1,i] += jacobian_bounds @ jacobian_box @ self.positions_after_grav_final.grad[frame,i] * self.delta_t
 
             elif self.particle_active[frame,i] == 2:
                 self.positions.grad[frame-1,i] += self.positions_after_grav_final.grad[frame,i]
@@ -407,14 +389,14 @@ class HandGradSim3D:
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
                 pos_i = self.positions_after_grav_final[frame,i]
-                # force_i = ti.Vector([0.0, 0.0, 0.0])
-                # for j in range(self.particle_num_neighbors[frame, i]):
-                #     p_j = self.particle_neighbors[frame, i, j]
-                #     if p_j >= 0:
-                #         pos_j = self.positions_after_grav_final[frame,p_j]
-                #         pos_ji = pos_i - pos_j
-                #         force_i += - self.cohesion_gamma * self.mass**2 * self.cohesion_kernel_forward(pos_ji.norm(), self.h) * pos_ji / pos_ji.norm()
-                self.positions_iter[frame,0,i] = pos_i #+ (force_i / self.mass) * self.delta_t**2
+                force_i = ti.Vector([0.0, 0.0, 0.0])
+                for j in range(self.particle_num_neighbors[frame, i]):
+                    p_j = self.particle_neighbors[frame, i, j]
+                    if p_j >= 0:
+                        pos_j = self.positions_after_grav_final[frame,p_j]
+                        pos_ji = pos_i - pos_j
+                        force_i += - self.cohesion_gamma * self.mass**2 * self.cohesion_kernel_forward(pos_ji.norm(), self.h) * pos_ji / pos_ji.norm()
+                self.positions_iter[frame,0,i] = pos_i + (force_i / self.mass) * self.delta_t**2
             elif self.particle_active[frame,i] == 2:
                 self.positions_iter[frame,0,i] = self.positions_after_grav_final[frame,i]
 
@@ -425,74 +407,71 @@ class HandGradSim3D:
                 pos_i = self.positions_after_grav_final[frame,i]
                 upstream_grad = self.positions_iter.grad[frame,0,i]
                 eye = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+                jacobian_i = ti.Matrix([[0.0, 0.0, 0.0],[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
 
-                # for j in range(self.particle_num_neighbors[frame, i]):
-                #     p_j = self.particle_neighbors[frame, i, j]
-                #     if p_j >= 0:
-                #         pos_j = self.positions_after_grav_final[frame,p_j] # vector
-                #         pos_ji = pos_i - pos_j # vector
-                #         r = pos_ji.norm() # scalar
-                #         grad_norm = self.vector_norm_backward(pos_ji) # vector
-                #         kernel_forward = self.cohesion_kernel_forward(r, self.h) # scalar
-                #         kernel_backward = self.cohesion_kernel_backward(r, self.h) # sclar
+                for j in range(self.particle_num_neighbors[frame, i]):
+                    p_j = self.particle_neighbors[frame, i, j]
+                    if p_j >= 0:
+                        pos_j = self.positions_after_grav_final[frame,p_j] # vector
+                        pos_ji = pos_i - pos_j # vector
+                        r = pos_ji.norm() # scalar
+                        grad_norm = self.vector_norm_backward(pos_ji) # vector
+                        kernel_forward = self.cohesion_kernel_forward(r, self.h) # scalar
+                        kernel_backward = self.cohesion_kernel_backward(r, self.h) # sclar
 
-                #         jacobian_ji = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
-                #         # d Fx / dx
-                #         jacobian_ji[0,0] =   grad_norm[0] * kernel_backward / r * pos_ji[0] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[0] * pos_ji[0] \
-                #                            + kernel_forward / r * 1
-                #         # d Fx / dy
-                #         jacobian_ji[1,0] =   grad_norm[1] * kernel_backward / r * pos_ji[0] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[0]
-                #         # d Fx / dz
-                #         jacobian_ji[2,0] =   grad_norm[2] * kernel_backward / r * pos_ji[0] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[0]
-                #         # d Fy / dx
-                #         jacobian_ji[0,1] =   grad_norm[0] * kernel_backward / r * pos_ji[1] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[0] * pos_ji[1]
-                #         # d Fy / dy
-                #         jacobian_ji[1,1] =   grad_norm[1] * kernel_backward / r * pos_ji[1] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[1] \
-                #                            + kernel_forward / r * 1
-                #         # d Fy / dz
-                #         jacobian_ji[2,1] =   grad_norm[2] * kernel_backward / r * pos_ji[1] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[2] * pos_ji[1]
-                #         # d Fz / dx
-                #         jacobian_ji[0,2] =   grad_norm[0] * kernel_backward / r * pos_ji[2] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[0] * pos_ji[2]
-                #         # d Fz / dy
-                #         jacobian_ji[1,2] =   grad_norm[1] * kernel_backward / r * pos_ji[2] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[2]
-                #         # d Fz / dz
-                #         jacobian_ji[2,2] =   grad_norm[2] * kernel_backward / r * pos_ji[2] \
-                #                            + kernel_forward * -1 / r**2 * grad_norm[2] * pos_ji[2] \
-                #                            + kernel_forward / r * 1
+                        jacobian_ji = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+                        # d Fx / dx
+                        jacobian_ji[0,0] =   grad_norm[0] * kernel_backward / r * pos_ji[0] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[0] * pos_ji[0] \
+                                           + kernel_forward / r * 1
+                        # d Fx / dy
+                        jacobian_ji[1,0] =   grad_norm[1] * kernel_backward / r * pos_ji[0] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[0]
+                        # d Fx / dz
+                        jacobian_ji[2,0] =   grad_norm[2] * kernel_backward / r * pos_ji[0] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[0]
+                        # d Fy / dx
+                        jacobian_ji[0,1] =   grad_norm[0] * kernel_backward / r * pos_ji[1] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[0] * pos_ji[1]
+                        # d Fy / dy
+                        jacobian_ji[1,1] =   grad_norm[1] * kernel_backward / r * pos_ji[1] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[1] \
+                                           + kernel_forward / r * 1
+                        # d Fy / dz
+                        jacobian_ji[2,1] =   grad_norm[2] * kernel_backward / r * pos_ji[1] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[2] * pos_ji[1]
+                        # d Fz / dx
+                        jacobian_ji[0,2] =   grad_norm[0] * kernel_backward / r * pos_ji[2] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[0] * pos_ji[2]
+                        # d Fz / dy
+                        jacobian_ji[1,2] =   grad_norm[1] * kernel_backward / r * pos_ji[2] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[1] * pos_ji[2]
+                        # d Fz / dz
+                        jacobian_ji[2,2] =   grad_norm[2] * kernel_backward / r * pos_ji[2] \
+                                           + kernel_forward * -1 / r**2 * grad_norm[2] * pos_ji[2] \
+                                           + kernel_forward / r * 1
 
-                #         # for x in ti.static(range(3)):
-                #         #     for y in ti.static(range(3)):
-                #         #         if ti.abs(jacobian_ji[x,y]) > 1:
-                #         #             if jacobian_ji[x,y] < 0:
-                #         #                 jacobian_ji[x,y] = -1
-                #         #             else:
-                #         #                 jacobian_ji[x,y] = 1
+                        jacobian_ji = jacobian_ji * -1 * self.cohesion_gamma / self.mass * self.delta_t**2
                         
-                #         # self.positions_after_grav_final.grad[frame,i] += (eye - self.cohesion_gamma * self.mass * self.delta_t**2 * jacobian_ji) @ upstream_grad
-                #         # self.positions_after_grav_final.grad[frame,p_j] += - self.cohesion_gamma * self.mass * self.delta_t**2 * -1 * jacobian_ji @ upstream_grad
-                self.positions_after_grav_final.grad[frame,i] = eye @ upstream_grad
+                        jacobian_i += jacobian_ji
+                        self.positions_after_grav_final.grad[frame,p_j] += -1 * jacobian_ji @ upstream_grad
+                
+                self.positions_after_grav_final.grad[frame,i] = (eye + jacobian_i) @ upstream_grad
+                # self.positions_after_grav_final.grad[frame,i] = self.positions_iter.grad[frame,0,i]
             elif self.particle_active[frame,i] == 2:
                 self.positions_after_grav_final.grad[frame,i] = self.positions_iter.grad[frame,0,i]
 
 
     @ti.func
     def upward_field_forward(self, x, x0, z, z0):
-        a = 0.5
+        a = 100
         v = ti.Vector([0.0, 0.0, 0.0])
         v[1] = a * ((2*np.pi)**2 * self.inside_x_var * self.inside_z_var)**(-1/2) * ti.exp(-1/2 * ((x-x0)**2 / self.inside_x_var + (z-z0)**2 / self.inside_z_var))
         return v
 
     @ti.func
     def upward_field_backward(self, x, x0, z, z0):
-        a = 0.5
+        a = 100
         jacobian = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
         # d Dx / dx
         jacobian[0,0] = 0
@@ -516,6 +495,7 @@ class HandGradSim3D:
         jacobian[1,2] = 0
         # d Dz / dz
         jacobian[2,2] = 0
+
         return a * jacobian
 
     # Generic for all three dimensions
@@ -539,7 +519,7 @@ class HandGradSim3D:
     def center_force_forward(self, pos, center):
         tmp = center - pos
         unit = tmp / tmp.norm()
-        a = 0.5
+        a = 4
         c = 2
         return a * unit / (tmp.norm()**2 + c)
 
@@ -547,7 +527,7 @@ class HandGradSim3D:
     def center_force_backward(self, pos, center):
         tmp = center - pos
         norm = tmp.norm()
-        a = 0.5
+        a = 4
         c = 2
         jacobian = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
         # d Dx / dx
@@ -611,16 +591,16 @@ class HandGradSim3D:
                 y = pos_i[1]
                 z = pos_i[2]
 
-                #Inside field
-                delta += self.upward_field_forward(x, x0, z, z0) * self.gating_increase_forward(y, tool_bot-0.3, self.gating_y_sig)
+                # Inside field
+                delta += self.upward_field_forward(x, x0, z, z0) * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig)
                 # Outside field
                 delta += self.center_force_forward(pos_i, tool_center) \
-                            * self.gating_increase_forward(x, tool_left-0.1, self.gating_x_sig) \
-                            * self.gating_decrease_forward(x, tool_right+0.1, self.gating_x_sig) \
-                            * self.gating_increase_forward(z, tool_back-0.1, self.gating_z_sig) \
-                            * self.gating_decrease_forward(z, tool_front+0.1, self.gating_z_sig) \
-                            * self.gating_increase_forward(y, tool_bot-0.2, self.gating_y_sig) \
-                            * self.gating_decrease_forward(y, tool_bot+0.01, self.gating_y_sig) 
+                            * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) \
+                            * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig) \
+                            * self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) \
+                            * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig) \
+                            * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) \
+                            * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig) 
                 
                 self.positions[frame,i] = pos_i +  delta
 
@@ -686,18 +666,18 @@ class HandGradSim3D:
                 center_force = self.center_force_forward(pos_i, tool_center)
                 center_force_grad = self.center_force_backward(pos_i, tool_center)
 
-                gate_x = self.gating_increase_forward(x, tool_left-0.1, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.1, self.gating_x_sig)
-                gate_x_grad = self.gating_increase_backward(x, tool_left-0.1, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.1, self.gating_x_sig) \
-                                * self.gating_increase_forward(x, tool_left-0.1, self.gating_x_sig) * self.gating_decrease_backward(x, tool_right+0.1, self.gating_x_sig)
+                gate_x = self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig)
+                gate_x_grad = self.gating_increase_backward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig) \
+                                * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_backward(x, tool_right+0.5, self.gating_x_sig)
 
-                gate_y = self.gating_increase_forward(y, tool_bot-0.2, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.01, self.gating_y_sig)
-                gate_y_grad = self.gating_increase_backward(y, tool_bot-0.2, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.01, self.gating_y_sig) \
-                                * self.gating_increase_forward(y, tool_bot-0.2, self.gating_y_sig) * self.gating_decrease_backward(y, tool_bot+0.01, self.gating_y_sig)
+                gate_y = self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig)
+                gate_y_grad = self.gating_increase_backward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig) \
+                                * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_backward(y, tool_bot+0.2, self.gating_y_sig)
 
 
-                gate_z = self.gating_increase_forward(z, tool_back-0.1, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.1, self.gating_z_sig)
-                gate_z_grad = self.gating_increase_backward(z, tool_back-0.1, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.1, self.gating_z_sig) \
-                                * self.gating_increase_forward(z, tool_back-0.1, self.gating_z_sig) * self.gating_decrease_backward(z, tool_front+0.1, self.gating_z_sig)
+                gate_z = self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig)
+                gate_z_grad = self.gating_increase_backward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig) \
+                                * self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_backward(z, tool_front+0.5, self.gating_z_sig)
 
                 # d Dx / dx
                 outside_grad[0,0] = center_force_grad[0,0] * gate_x * gate_y * gate_z \
@@ -732,6 +712,8 @@ class HandGradSim3D:
 
                 self.positions_after_delta.grad[frame,i] += 1 * (eye + pos_grad_delta) @ upstream_grad
                 self.tool_states.grad[frame] += 1 * tool_grad_delta @ upstream_grad
+                # self.positions_after_delta.grad[frame,i] += upstream_grad
+                # self.tool_states.grad[frame] += 0#-1 * upstream_grad
 
 
     # Propagating the resting particles is only needed in the aux sim for loss formulation
@@ -1148,7 +1130,7 @@ class HandGradSim3D:
                     if self.particle_active[f,i] == 1:
                         if self.positions[f,i][1] <= self.boundary[1]-0.5:
                             # target = ti.Vector([12, 10, 12])
-                            d = 0.5 * (self.boundary[1]-1 - self.positions[f,i][1])**2
+                            d = 0.5 * (self.boundary[1]-0.5 - self.positions[f,i][1])**2
                             # dif = target - self.positions[f,i]
                             # d = 0.5 * dif.norm()**2
                             if d > 0:
@@ -1165,7 +1147,7 @@ class HandGradSim3D:
                 for i in range(self.num_particles):
                     if self.particle_active[f,i] == 1:
                         if self.positions[f,i][1] <= self.boundary[1]-0.5:
-                            dif = self.boundary[1]-1 - self.positions[f,i][1]
+                            dif = self.boundary[1]-0.5 - self.positions[f,i][1]
                             d = 0.5 * (dif)**2
                             # target = ti.Vector([12, 10, 12])
                             # dif = target - self.positions[f,i]
@@ -1184,11 +1166,11 @@ class HandGradSim3D:
     @ti.kernel
     def copy_active(self, frame: ti.i32):
         for i in range(self.num_particles):
-            # if self.positions[frame-1,i][1] > self.boundary[1] - 0.5:
-            #     self.particle_active[frame,i] = 2
-            # else:
-            #     self.particle_active[frame,i] = self.particle_active[frame-1,i]
-            self.particle_active[frame,i] = self.particle_active[frame-1,i]
+            if self.positions[frame-1,i][1] > self.boundary[1] - 0.5:
+                self.particle_active[frame,i] = 2
+            else:
+                self.particle_active[frame,i] = self.particle_active[frame-1,i]
+            # self.particle_active[frame,i] = self.particle_active[frame-1,i]
         self.num_active[frame] = self.num_active[frame-1]
         self.num_suctioned[frame] = self.num_suctioned[frame-1]
 
@@ -1218,21 +1200,21 @@ class HandGradSim3D:
 
         
     def backward_step(self, frame):
-        print("Frame",frame)
+        # print("Frame",frame)
         self.update_velocity_backward(frame)
 
-        print("Positions after velocity backward")
-        print(self.positions.grad.to_numpy())
-        print("Velocitiess after velocity backward")
-        print(self.velocities.grad.to_numpy())
+        # print("Positions after velocity backward")
+        # print(self.positions.grad.to_numpy())
+        # print("Velocitiess after velocity backward")
+        # print(self.velocities.grad.to_numpy())
 
         self.prop_resting_backward(frame)
         self.apply_suction_backward(frame)
 
-        print("Positions after delta grad")
-        print(self.positions_after_delta.grad.to_numpy())
-        print("Tool state grad")
-        print(self.tool_states.grad.to_numpy())
+        # print("Positions after delta grad")
+        # print(self.positions_after_delta.grad.to_numpy())
+        # print("Tool state grad")
+        # print(self.tool_states.grad.to_numpy())
 
         self.apply_final_position_deltas_backward(frame)
 
@@ -1244,8 +1226,8 @@ class HandGradSim3D:
 
         self.cohesion_backward(frame)
 
-        print("Positions after grav final grad")
-        print(self.positions_after_grav_final.grad.to_numpy())
+        # print("Positions after grav final grad")
+        # print(self.positions_after_grav_final.grad.to_numpy())
 
         self.gravity_backward(frame)
 
@@ -1268,9 +1250,10 @@ class HandGradSim3D:
             # self.move_tool(i)
             self.step_forward(i)
             if self.do_emit:
-                self.emit_particles(9, i, np.array([[0.1, 0.5, 0.1],[0.1, 0.5, 0.2],[0.1, 0.5, 0.3],[0.1, 0.5, 0.4],[0.1, 0.5, 0.5],[0.1, 0.5, 0.6],[0.1, 0.5, 0.7],[0.1, 0.5, 0.8],[0.1, 0.5, 0.9]]), 
-                                          np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
-                # pass
+                # self.emit_particles(9, i, np.array([[1.0, 5.0, 0.5],[1.0, 5.0, 1.0],[1.0, 5.0, 1.5],[1.0, 5.0, 2.0],[1.0, 5.0, 2.5],[1.0, 5.0, 3.0],[1.0, 5.0, 3.5],[1.0, 5.0, 4.0],[1.0, 5.0, 4.5]]), 
+                                        #   np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+                self.emit_particles(3, i, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+
             if self.do_save_ply:
                 self.save_ply(i)
             if self.do_save_npz:
@@ -1291,9 +1274,10 @@ class HandGradSim3D:
     def init_step(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(9, 0, np.array([[0.1, 0.5, 0.1],[0.1, 0.5, 0.2],[0.1, 0.5, 0.3],[0.1, 0.5, 0.4],[0.1, 0.5, 0.5],[0.1, 0.5, 0.6],[0.1, 0.5, 0.7],[0.1, 0.5, 0.8],[0.1, 0.5, 0.9]]), 
-                                      np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
-                
+            # self.emit_particles(9, 0, np.array([[1.0, 5.0, 0.5],[1.0, 5.0, 1.0],[1.0, 5.0, 1.5],[1.0, 5.0, 2.0],[1.0, 5.0, 2.5],[1.0, 5.0, 3.0],[1.0, 5.0, 3.5],[1.0, 5.0, 4.0],[1.0, 5.0, 4.5]]), 
+                                    #   np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))    
+            self.emit_particles(3, 0, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+
         if self.do_save_npy:
             self.save_npy(0)
 
@@ -1313,8 +1297,8 @@ class HandGradSim3D:
         elif pos[2] + self.tool_dims[None][2] >= self.boundary[2]:
             pos[2] = self.boundary[2] - self.tool_dims[None][2]
         # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 2.0])
-        box_dims = ti.Vector([2.0, 20.0, 1.0])
+        box_pos = ti.Vector([0.0, 0.0, 10.0])
+        box_dims = ti.Vector([10.0, 20.0, 5.0])
 
         box_front = box_pos[2]
         box_back = box_pos[2] - box_dims[2]
@@ -1322,23 +1306,15 @@ class HandGradSim3D:
         box_right = box_pos[0] + box_dims[0]
 
         if pos[0] >= box_left and pos[0] <= box_right and pos[2] - self.tool_dims[None][2] <= box_front and pos[2] >= box_back:
-            d = ti.Vector([0.0, 0.0, 0.0])
-            d[0] = ti.abs(pos[0] - box_right)
-            d[1] = ti.abs(pos[2] - box_front)
-            d[2] = ti.abs(pos[2] - box_back)
+            d_right = box_right - pos[0]
+            d_front = box_front - pos[2]
+            d_back = pos[2] - box_back
 
-            min_d = d[0]
-            ind = 0
-
-            for k in ti.static(range(3)):
-                if d[k] < min_d:
-                    ind = k
-
-            if ind == 0:
+            if d_right <= d_front and d_right <= d_back:
                 pos[0] = box_right
-            elif ind == 1:
-                pos[2] = box_front + self.tool_dims[None][2]
-            elif ind == 2:
+            elif d_front <= d_right and d_front <= d_back:
+                pos[2] = box_front
+            else:
                 pos[2] = box_back
 
         return pos
@@ -1352,9 +1328,9 @@ class HandGradSim3D:
         self.move_tool(frame, tool_pos)
         self.step_forward(frame)
         if self.do_emit:
-            self.emit_particles(9, frame, np.array([[0.1, 0.5, 0.1],[0.1, 0.5, 0.2],[0.1, 0.5, 0.3],[0.1, 0.5, 0.4],[0.1, 0.5, 0.5],[0.1, 0.5, 0.6],[0.1, 0.5, 0.7],[0.1, 0.5, 0.8],[0.1, 0.5, 0.9]]), 
-                                          np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
-
+            # self.emit_particles(9, frame, np.array([[1.0, 5.0, 0.5],[1.0, 5.0, 1.0],[1.0, 5.0, 1.5],[1.0, 5.0, 2.0],[1.0, 5.0, 2.5],[1.0, 5.0, 3.0],[1.0, 5.0, 3.5],[1.0, 5.0, 4.0],[1.0, 5.0, 4.5]]), 
+                                        #   np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            self.emit_particles(3, frame, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
         if self.do_save_npy:
             self.save_npy(frame)
 
@@ -1378,9 +1354,9 @@ class HandGradSim3D:
         active = self.particle_active.to_numpy()[frame,:]
         # inds = np.logical_or(active == 1, active == 2)
         inds = active == 1
-        np.save("../viz_results/3D/new_MPC/exp32/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp33/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.tool_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp32/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp33/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     

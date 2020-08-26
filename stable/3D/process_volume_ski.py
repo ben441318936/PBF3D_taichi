@@ -4,7 +4,7 @@ from scipy.ndimage import gaussian_filter
 import trimesh
 import pyrender
 
-exp = "exp21"
+exp = "exp33"
 
 for k in range(0,300):
 
@@ -12,8 +12,8 @@ for k in range(0,300):
 
     boundary = np.array([15.0, 20.0, 15.0])
 
-    pts = np.load("../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
-    tool_pos = np.load("../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
+    pts = np.load("../../viz_results/3D/new_MPC/{}/particles/frame_{}.npy".format(exp,k))
+    tool_pos = np.load("../../viz_results/3D/new_MPC/{}/tool/frame_{}.npy".format(exp,k))
 
     if pts.shape[0] > 0:
 
@@ -37,9 +37,9 @@ for k in range(0,300):
 
         # Use marching cubes to obtain the surface mesh of these ellipsoids
         vertices, faces, normals, values = measure.marching_cubes(padded_env, np.max(padded_env)/10)
-        np.save("../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k), vertices)
-        np.save("../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k), faces)
-        np.save("../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k), normals)
+        np.save("../../viz_results/3D/new_MPC/{}/fluid/vertices_frame_{}.npy".format(exp,k), vertices)
+        np.save("../../viz_results/3D/new_MPC/{}/fluid/faces_frame_{}.npy".format(exp,k), faces)
+        np.save("../../viz_results/3D/new_MPC/{}/fluid/normals_frame_{}.npy".format(exp,k), normals)
 
         # tm = trimesh.Trimesh(vertices=vertices, faces=faces, vertex_normals=normals)
         # tm.export("../viz_results/3D/new_MPC/{}/fluid/frame_{}.ply".format(exp,k))

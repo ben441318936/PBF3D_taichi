@@ -38,7 +38,7 @@ class HandGradSim3D:
         # PBF params
         self.h = 1.1
         self.mass = 1.0
-        self.rho0 = 1.0
+        self.rho0 = 2.0
         self.lambda_epsilon = 100.0
         self.vorticity_epsilon = 0.01
         self.viscosity_c = 0.1
@@ -52,8 +52,8 @@ class HandGradSim3D:
         self.poly6_factor = 315.0 / 64.0 / np.pi
         self.spiky_grad_factor = -45.0 / np.pi
 
-        self.inside_x_var = 0.5
-        self.inside_z_var = 0.5
+        self.inside_x_var = 1
+        self.inside_z_var = 1
         self.gating_x_sig = 0.5
         self.gating_y_sig = 0.5
         self.gating_z_sig = 0.5
@@ -207,7 +207,7 @@ class HandGradSim3D:
     def confine_position_to_boundary_forward(self, p):
         # Global boundaries
         bmin = self.particle_radius
-        bmax = ti.Vector([self.boundary[0], self.boundary[1], self.boundary[2]]) - self.particle_radius
+        bmax = ti.Vector([self.boundary[0], self.boundary[1]+100, self.boundary[2]]) - self.particle_radius
 
         for i in ti.static(range(self.dim)):
             # Use randomness to prevent particles from sticking into each other after clamping
@@ -492,13 +492,13 @@ class HandGradSim3D:
                 #Inside field
                 delta += self.upward_field_forward(x, x0, z, z0) * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig)
                 # Outside field
-                delta += self.center_force_forward(pos_i, tool_center) \
-                            * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) \
-                            * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig) \
-                            * self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) \
-                            * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig) \
-                            * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) \
-                            * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig) 
+                # delta += self.center_force_forward(pos_i, tool_center) \
+                #             * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) \
+                #             * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig) \
+                #             * self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) \
+                #             * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig) \
+                #             * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) \
+                #             * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig) 
                 
                 self.positions[frame,i] = pos_i +  delta
 
@@ -558,55 +558,55 @@ class HandGradSim3D:
                 # d Dz / dz
                 inside_grad[2,2] = 0
 
-                outside_grad = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+                # outside_grad = ti.Matrix([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
 
-                # Outside field with gating
-                center_force = self.center_force_forward(pos_i, tool_center)
-                center_force_grad = self.center_force_backward(pos_i, tool_center)
+                # # Outside field with gating
+                # center_force = self.center_force_forward(pos_i, tool_center)
+                # center_force_grad = self.center_force_backward(pos_i, tool_center)
 
-                gate_x = self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig)
-                gate_x_grad = self.gating_increase_backward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig) \
-                                * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_backward(x, tool_right+0.5, self.gating_x_sig)
+                # gate_x = self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig)
+                # gate_x_grad = self.gating_increase_backward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_forward(x, tool_right+0.5, self.gating_x_sig) \
+                #                 * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) * self.gating_decrease_backward(x, tool_right+0.5, self.gating_x_sig)
 
-                gate_y = self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig)
-                gate_y_grad = self.gating_increase_backward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig) \
-                                * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_backward(y, tool_bot+0.2, self.gating_y_sig)
+                # gate_y = self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig)
+                # gate_y_grad = self.gating_increase_backward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_forward(y, tool_bot+0.2, self.gating_y_sig) \
+                #                 * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) * self.gating_decrease_backward(y, tool_bot+0.2, self.gating_y_sig)
 
 
-                gate_z = self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig)
-                gate_z_grad = self.gating_increase_backward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig) \
-                                * self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_backward(z, tool_front+0.5, self.gating_z_sig)
+                # gate_z = self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig)
+                # gate_z_grad = self.gating_increase_backward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_forward(z, tool_front+0.5, self.gating_z_sig) \
+                #                 * self.gating_increase_forward(z, tool_back-0.5, self.gating_z_sig) * self.gating_decrease_backward(z, tool_front+0.5, self.gating_z_sig)
 
-                # d Dx / dx
-                outside_grad[0,0] = center_force_grad[0,0] * gate_x * gate_y * gate_z \
-                                    * center_force[0] * gate_x_grad * gate_y * gate_z
-                # d Dx / dy
-                outside_grad[1,0] = center_force_grad[1,0] * gate_x * gate_y * gate_z \
-                                    * center_force[0] * gate_x * gate_y_grad * gate_z
-                # d Dx / dz
-                outside_grad[2,0] = center_force_grad[2,0] * gate_x * gate_y * gate_z \
-                                    * center_force[0] * gate_x * gate_y * gate_z_grad
-                # d Dy / dx
-                outside_grad[0,1] = center_force_grad[0,1] * gate_x * gate_y * gate_z \
-                                    * center_force[1] * gate_x_grad * gate_y * gate_z
-                # d Dy / dy
-                outside_grad[1,1] = center_force_grad[1,1] * gate_x * gate_y * gate_z \
-                                    * center_force[1] * gate_x * gate_y_grad * gate_z
-                # d Dy / dz
-                outside_grad[2,1] = center_force_grad[2,1] * gate_x * gate_y * gate_z \
-                                    * center_force[1] * gate_x * gate_y * gate_z_grad
-                # d Dz / dx
-                outside_grad[0,2] = center_force_grad[0,2] * gate_x * gate_y * gate_z \
-                                    * center_force[2] * gate_x_grad * gate_y * gate_z
-                # d Dz / dy
-                outside_grad[1,2] = center_force_grad[1,2] * gate_x * gate_y * gate_z \
-                                    * center_force[2] * gate_x * gate_y_grad * gate_z
-                # d Dz / dz
-                outside_grad[2,2] = center_force_grad[2,2] * gate_x * gate_y * gate_z \
-                                    * center_force[2] * gate_x * gate_y * gate_z_grad
+                # # d Dx / dx
+                # outside_grad[0,0] = center_force_grad[0,0] * gate_x * gate_y * gate_z \
+                #                     * center_force[0] * gate_x_grad * gate_y * gate_z
+                # # d Dx / dy
+                # outside_grad[1,0] = center_force_grad[1,0] * gate_x * gate_y * gate_z \
+                #                     * center_force[0] * gate_x * gate_y_grad * gate_z
+                # # d Dx / dz
+                # outside_grad[2,0] = center_force_grad[2,0] * gate_x * gate_y * gate_z \
+                #                     * center_force[0] * gate_x * gate_y * gate_z_grad
+                # # d Dy / dx
+                # outside_grad[0,1] = center_force_grad[0,1] * gate_x * gate_y * gate_z \
+                #                     * center_force[1] * gate_x_grad * gate_y * gate_z
+                # # d Dy / dy
+                # outside_grad[1,1] = center_force_grad[1,1] * gate_x * gate_y * gate_z \
+                #                     * center_force[1] * gate_x * gate_y_grad * gate_z
+                # # d Dy / dz
+                # outside_grad[2,1] = center_force_grad[2,1] * gate_x * gate_y * gate_z \
+                #                     * center_force[1] * gate_x * gate_y * gate_z_grad
+                # # d Dz / dx
+                # outside_grad[0,2] = center_force_grad[0,2] * gate_x * gate_y * gate_z \
+                #                     * center_force[2] * gate_x_grad * gate_y * gate_z
+                # # d Dz / dy
+                # outside_grad[1,2] = center_force_grad[1,2] * gate_x * gate_y * gate_z \
+                #                     * center_force[2] * gate_x * gate_y_grad * gate_z
+                # # d Dz / dz
+                # outside_grad[2,2] = center_force_grad[2,2] * gate_x * gate_y * gate_z \
+                #                     * center_force[2] * gate_x * gate_y * gate_z_grad
 
-                pos_grad_delta = 1 * inside_grad - outside_grad
-                tool_grad_delta = -1 * inside_grad + outside_grad
+                pos_grad_delta = 1 * inside_grad #- outside_grad
+                tool_grad_delta = -1 * inside_grad #+ outside_grad
 
                 self.positions_after_delta.grad[frame,i] += 1 * (eye + pos_grad_delta) @ upstream_grad
                 self.tool_states.grad[frame] += 1 * tool_grad_delta @ upstream_grad
@@ -1098,7 +1098,10 @@ class HandGradSim3D:
             # self.move_tool(i)
             self.step_forward(i)
             if self.do_emit:
-                self.emit_particles(3, i, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+                # self.emit_particles(3, i, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+                self.emit_particles(9, i, np.array([[1.0, 5.0, 0.5],[1.0, 5.0, 1.0],[1.0, 5.0, 1.5],[1.0, 5.0, 2.0],[1.0, 5.0, 2.5],[1.0, 5.0, 3.0],[1.0, 5.0, 3.5],[1.0, 5.0, 4.0],[1.0, 5.0, 4.5]]), 
+                                          np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            
             if self.do_save_ply:
                 self.save_ply(i)
             if self.do_save_npz:
@@ -1119,7 +1122,10 @@ class HandGradSim3D:
     def init_step(self):
         self.clear_neighbor_info()
         if self.do_emit:
-            self.emit_particles(3, 0, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            # self.emit_particles(3, 0, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            self.emit_particles(9, 0, np.array([[1.0, 5.0, 0.5],[1.0, 5.0, 1.0],[1.0, 5.0, 1.5],[1.0, 5.0, 2.0],[1.0, 5.0, 2.5],[1.0, 5.0, 3.0],[1.0, 5.0, 3.5],[1.0, 5.0, 4.0],[1.0, 5.0, 4.5]]), 
+                                      np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            
         if self.do_save_npy:
             self.save_npy(0)
 
@@ -1132,8 +1138,8 @@ class HandGradSim3D:
             pos[0] = self.boundary[0] - self.tool_dims[None][0]
         if pos[1] <= 0:
             pos[1] = 0
-        elif pos[1] >= self.boundary[1]:
-            pos[1] = self.boundary[1]
+        elif pos[1] >= 0.5: #self.boundary[1]:
+            pos[1] = 0.5 #self.boundary[1]
         if pos[2] <= 0:
             pos[2] = 0
         elif pos[2] + self.tool_dims[None][2] >= self.boundary[2]:
@@ -1148,23 +1154,15 @@ class HandGradSim3D:
         box_right = box_pos[0] + box_dims[0]
 
         if pos[0] >= box_left and pos[0] <= box_right and pos[2] - self.tool_dims[None][2] <= box_front and pos[2] >= box_back:
-            d = ti.Vector([0.0, 0.0, 0.0])
-            d[0] = ti.abs(pos[0] - box_right)
-            d[1] = ti.abs(pos[2] - box_front)
-            d[2] = ti.abs(pos[2] - box_back)
+            d_right = box_right - pos[0]
+            d_front = box_front - pos[2]
+            d_back = pos[2] - box_back
 
-            min_d = d[0]
-            ind = 0
-
-            for k in ti.static(range(3)):
-                if d[k] < min_d:
-                    ind = k
-
-            if ind == 0:
+            if d_right <= d_front and d_right <= d_back:
                 pos[0] = box_right
-            elif ind == 1:
-                pos[2] = box_front + self.tool_dims[None][2]
-            elif ind == 2:
+            elif d_front <= d_right and d_front <= d_back:
+                pos[2] = box_front
+            else:
                 pos[2] = box_back
 
         return pos
@@ -1178,7 +1176,10 @@ class HandGradSim3D:
         self.move_tool(frame, tool_pos)
         self.step_forward(frame)
         if self.do_emit:
-            self.emit_particles(3, frame, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            # self.emit_particles(3, frame, np.array([[1.0, 1.0, 2.0],[1.0, 1.0, 3.0],[1.0, 1.0, 4.0]]), np.array([[10.0, 0.0, 0.0],[10.0, 0.0, 0.0],[10.0, 0.0, 0.0]]))
+            self.emit_particles(9, frame, np.array([[1.0, 5.0, 0.5],[1.0, 5.0, 1.0],[1.0, 5.0, 1.5],[1.0, 5.0, 2.0],[1.0, 5.0, 2.5],[1.0, 5.0, 3.0],[1.0, 5.0, 3.5],[1.0, 5.0, 4.0],[1.0, 5.0, 4.5]]), 
+                                          np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            
         if self.do_save_npy:
             self.save_npy(frame)
 
@@ -1202,9 +1203,9 @@ class HandGradSim3D:
         active = self.particle_active.to_numpy()[frame,:]
         # inds = np.logical_or(active == 1, active == 2)
         inds = active == 1
-        np.save("../viz_results/3D/new_MPC/exp26/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../../viz_results/3D/new_MPC/exp36/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.tool_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp26/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../../viz_results/3D/new_MPC/exp36/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
