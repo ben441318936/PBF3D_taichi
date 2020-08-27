@@ -1,10 +1,24 @@
 import numpy as np
 
-a = np.eye(4)
-a[:3,3] = np.array([5,25,-5])
+def find_nearest_ind(array, value):
+    array = np.asarray(array)
+    idx = (np.abs(array - value)).argmin()
+    return idx
 
-b = np.eye(4)
-b[:3,3] = np.array([120,10,100])
+def get_inds(x, y, z, p):
+    inds = [0, 0, 0]
+    inds[0] = find_nearest_ind(x,p[0])
+    inds[1] = find_nearest_ind(y,p[1])
+    inds[2] = find_nearest_ind(z,p[2])
+    return inds
 
-c = a @ b
-print(c)
+
+x = np.arange(-5, 5, 0.1)
+y = np.arange(-5, 5, 0.1)
+z = np.arange(-5, 5, 0.1)
+
+p = [2, 2, 2]
+
+inds = get_inds(x, y, z, p)
+
+print(inds)

@@ -1,12 +1,25 @@
 ## Work journal
 
 
-### Week of August 24th - August 25th, 2020
+### Week of August 24th - August 26th, 2020
+
+
+#### Aug. 26th
+- Suction control
+    - Gradient issues
+        - The large gradients might actually be correct, just comes from the fact that as the number of particles increase, there are more interactions
+        - We can normalize the gradients such that no component is larger than 1, which leads to good results for MPC
+    - SDF representation of obstacles
+        - Use the mesh_to_sdf libarary to convert arbitrary trimesh into SDF
+        - Use numpy.gradient to numerically differentiate the SDF and get normal directions
+        - Collision can be implemented as pushing the particle along the normalized normal with distance given by SDF
+        
 
 
 #### Aug. 25th
 - Suction control
     - The exploding gradient is due to the h parameter being too small, which was changed when we saled down the simulation
+    - Still have issues of large gradients when the number of particles is large
 
 
 #### Aug. 24th
