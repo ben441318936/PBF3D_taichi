@@ -1,7 +1,12 @@
 ## Work journal
 
 
-### Week of August 24th - August 26th, 2020
+### Week of August 24th - August 27th, 2020
+
+
+#### Aug. 27th
+- Suction control
+    - Collision
 
 
 #### Aug. 26th
@@ -14,7 +19,6 @@
         - Use numpy.gradient to numerically differentiate the SDF and get normal directions
         - Collision can be implemented as pushing the particle along the normalized normal with distance given by SDF
         
-
 
 #### Aug. 25th
 - Suction control
@@ -29,7 +33,6 @@
 - Suction control
     - Some exploding gradient issues after down scaling and cohesion implementation
     - So far the problem has been isolated to the the down-scaled suction fields, likely the gradients are exploding due to very sharp changes in the sigmoids
-
 
 
 ### Week of August 17th - August 21st, 2020

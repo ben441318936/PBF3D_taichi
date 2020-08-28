@@ -58,7 +58,5 @@ def get_grads(x, y, z, sdf_grad, p):
     grad[2] = sdf_grad[2][ind]
     return grad
 
-p = [2, 2, 2]
-
-print(get_grads(x, y, z, sdf_grad, p))
-
+# p = [2, 2, 2]
+# print(get_grads(x, y, z, sdf_grad, p))

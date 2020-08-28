@@ -58,7 +58,6 @@ class HandGradSim3D:
         self.gating_y_sig = 0.5
         self.gating_z_sig = 0.5
 
-        self.target = ti.Vector(self.dim, ti.f32)
 
         self.particle_active = ti.var(ti.i32)
         self.num_active = ti.var(ti.i32)
@@ -89,8 +88,14 @@ class HandGradSim3D:
         # 0: x, 1: y, 2: z 
         self.tool_dims = ti.Vector(self.dim, dt=ti.f32)
 
-        self.distance_matrix = ti.var(ti.f32)
-        self.min_dist_frame = ti.var(ti.i32)
+        self.voxel_inc = 0.5
+        self.voxel_grid_dims = (len(np.arange(0, self.boundary[0], self.voxel_inc)),
+                                len(np.arange(0, self.boundary[1], self.voxel_inc)),
+                                len(np.arange(0, self.boundary[2], self.voxel_inc)))
+
+        self.box_sdf = ti.var(ti.f32)
+        self.box_normal = ti.Vector(3, ti.f32)
+
         self.loss = ti.var(ti.f32)
 
         self.place_vars()
@@ -103,10 +108,7 @@ class HandGradSim3D:
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.positions_after_delta_box)
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.pbf_num_iters+1).dense(ti.k, self.num_particles).place(self.positions_iter)
 
-        ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.distance_matrix)
-        ti.root.dense(ti.i, self.num_particles).place(self.min_dist_frame)
         ti.root.place(self.loss)
-        ti.root.place(self.target)
 
         ti.root.dense(ti.i, self.max_timesteps).dense(ti.j, self.num_particles).place(self.particle_active)
         ti.root.dense(ti.i, self.max_timesteps).place(self.num_active)
@@ -129,6 +131,9 @@ class HandGradSim3D:
 
         ti.root.dense(ti.i, self.max_timesteps).place(self.tool_states)
         ti.root.place(self.tool_dims)
+
+        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_sdf)
+        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_normal)
 
         ti.root.lazy_grad()
 
@@ -153,8 +158,6 @@ class HandGradSim3D:
         self.lambdas.fill(0.0)
         self.position_deltas.fill(0.0)
         self.loss.fill(0.0)
-        self.distance_matrix.fill(0.0)
-        self.min_dist_frame.fill(0)
         self.particle_active.fill(0)
         self.num_active.fill(0)
         self.num_suctioned.fill(0)
@@ -164,6 +167,8 @@ class HandGradSim3D:
         self.init_tool_dim(np.array([1.0, 5.0, 1.0]))
         if tool_states is not None:
             self.init_tool(tool_states)
+        self.box_sdf.from_numpy(np.load("box_sdf.npy"))
+        self.box_normal.from_numpy(np.load("box_sdf_grad.npy"))
 
         
     def clear_global_grads(self):
@@ -218,53 +223,53 @@ class HandGradSim3D:
 
         return p
 
-    @ti.func
-    def confine_position_to_box_forward(self, p):
-        # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 10.0])
-        box_dims = ti.Vector([10.0, 20.0, 5.0])
+    # @ti.func
+    # def confine_position_to_box_forward(self, p):
+    #     # Center obstacle
+    #     box_pos = ti.Vector([0.0, 0.0, 10.0])
+    #     box_dims = ti.Vector([10.0, 20.0, 5.0])
 
-        box_front = box_pos[2]
-        box_back = box_pos[2] - box_dims[2]
-        box_left = box_pos[0]
-        box_right = box_pos[0] + box_dims[0]
-        box_bot = box_pos[1]
-        box_top = box_pos[1] + box_dims[1]
+    #     box_front = box_pos[2]
+    #     box_back = box_pos[2] - box_dims[2]
+    #     box_left = box_pos[0]
+    #     box_right = box_pos[0] + box_dims[0]
+    #     box_bot = box_pos[1]
+    #     box_top = box_pos[1] + box_dims[1]
 
-        new_p = p
+    #     new_p = p
 
-        if p[0] >= box_left and  p[0] <= box_right and p[1] >= box_bot and p[1] <= box_top and p[2] <= box_front and p[2] >= box_back:
-            # d = ti.Vector([0.0, 0.0, 0.0])
-            # d[0] = box_right - p[0]
-            # d[1] = box_front - p[2] 
-            # d[2] = p[2] - box_back
+    #     if p[0] >= box_left and  p[0] <= box_right and p[1] >= box_bot and p[1] <= box_top and p[2] <= box_front and p[2] >= box_back:
+    #         # d = ti.Vector([0.0, 0.0, 0.0])
+    #         # d[0] = box_right - p[0]
+    #         # d[1] = box_front - p[2] 
+    #         # d[2] = p[2] - box_back
 
-            # min_d = d[0]
-            # ind = 0
+    #         # min_d = d[0]
+    #         # ind = 0
 
-            # for k in ti.static(range(3)):
-            #     if d[k] <= min_d:
-            #         ind = k
+    #         # for k in ti.static(range(3)):
+    #         #     if d[k] <= min_d:
+    #         #         ind = k
 
-            # if ind == 0:
-            #     new_p[0] = box_right + self.epsilon * ti.random()
-            # if ind == 1:
-            #     new_p[2] = box_front + self.epsilon * ti.random()
-            # if ind == 2:
-            #     new_p[2] = box_back - self.epsilon * ti.random()
+    #         # if ind == 0:
+    #         #     new_p[0] = box_right + self.epsilon * ti.random()
+    #         # if ind == 1:
+    #         #     new_p[2] = box_front + self.epsilon * ti.random()
+    #         # if ind == 2:
+    #         #     new_p[2] = box_back - self.epsilon * ti.random()
 
-            d_right = box_right - p[0]
-            d_front = box_front - p[2]
-            d_back = p[2] - box_back
+    #         d_right = box_right - p[0]
+    #         d_front = box_front - p[2]
+    #         d_back = p[2] - box_back
 
-            if d_right <= d_front and d_right <= d_back:
-                new_p[0] = box_right + self.epsilon * ti.random()
-            elif d_front <= d_right and d_front <= d_back:
-                new_p[2] = box_front + self.epsilon * ti.random()
-            else:
-                new_p[2] = box_back - self.epsilon * ti.random()
+    #         if d_right <= d_front and d_right <= d_back:
+    #             new_p[0] = box_right + self.epsilon * ti.random()
+    #         elif d_front <= d_right and d_front <= d_back:
+    #             new_p[2] = box_front + self.epsilon * ti.random()
+    #         else:
+    #             new_p[2] = box_back - self.epsilon * ti.random()
 
-        return new_p
+    #     return new_p
 
     @ti.func
     def confine_position_to_boundary_backward(self, p):
@@ -327,6 +332,33 @@ class HandGradSim3D:
                 jacobian[2,2] = 0
 
         return jacobian
+
+    @ti.func
+    def compute_voxel_ind(self, low, high, dim, inc, v):
+        result = 0
+        if v <= low:
+            result = 0
+        elif v >= high:
+            result = dim-1
+        else:
+            shifted_v = v - low
+            result = int(ti.floor(shifted_v / inc))
+        return result
+
+    @ti.func
+    def confine_position_to_box_forward(self, p):
+        new_p = ti.Vector([0.0, 0.0, 0.0])
+        ind = ti.Vector([0.0, 0.0, 0.0])
+        ind[0] = self.compute_voxel_ind(0, self.boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
+        ind[1] = self.compute_voxel_ind(0, self.boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
+        ind[2] = self.compute_voxel_ind(0, self.boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
+        sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
+        if sdf_val <= 0:
+            normal = self.box_normal[ind[0], ind[1], ind[2]]
+            new_p = p + -1 * sdf_val * normal
+        else:
+            new_p = p
+        return new_p
 
             
     @ti.kernel
@@ -760,11 +792,12 @@ class HandGradSim3D:
     @ti.func
     def poly6_value_backward(self, s_sqr, h):
         #s_sqr = r.norm()**2
+        out_grad = 0.0
         if 0 < s_sqr and s_sqr < h**2:
             out_grad = self.poly6_factor / h**9 * 3 * (h**2 - s_sqr) #* ti.Vector([1.0, 1.0])
-            return out_grad
         else:
-            return 0.0
+            out_grad = 0.0
+        return out_grad
 
     @ti.func
     def s_sqr_to_r(self, r):
@@ -1200,9 +1233,9 @@ class HandGradSim3D:
         active = self.particle_active.to_numpy()[frame,:]
         # inds = np.logical_or(active == 1, active == 2)
         inds = active == 1
-        np.save("../../viz_results/3D/new_MPC/exp38/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp39/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.tool_states.to_numpy()[frame,:]
-        np.save("../../viz_results/3D/new_MPC/exp38/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp39/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     
