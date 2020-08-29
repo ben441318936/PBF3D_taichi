@@ -1,12 +1,18 @@
 ## Work journal
 
 
-### Week of August 24th - August 27th, 2020
+### Week of August 24th - August 28th, 2020
+
+
+#### Aug. 28th
+- Suction control
+    - Integrated SDF checking with PBF simulation
+    - Tested with box and sphere shape
 
 
 #### Aug. 27th
 - Suction control
-    - Collision
+    - Implemented collision and boundary checks using SDF representation of solid volume
 
 
 #### Aug. 26th

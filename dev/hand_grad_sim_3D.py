@@ -88,10 +88,10 @@ class HandGradSim3D:
         # 0: x, 1: y, 2: z 
         self.tool_dims = ti.Vector(self.dim, dt=ti.f32)
 
-        self.voxel_inc = 0.5
-        self.voxel_grid_dims = (len(np.arange(0, self.boundary[0], self.voxel_inc)),
-                                len(np.arange(0, self.boundary[1], self.voxel_inc)),
-                                len(np.arange(0, self.boundary[2], self.voxel_inc)))
+        self.voxel_inc = 0.1
+        self.voxel_grid_dims = (len(np.arange(-1, self.boundary[0], self.voxel_inc)),
+                                len(np.arange(-1, self.boundary[1], self.voxel_inc)),
+                                len(np.arange(-1, self.boundary[2], self.voxel_inc)))
 
         self.box_sdf = ti.var(ti.f32)
         self.box_normal = ti.Vector(3, ti.f32)
@@ -347,17 +347,17 @@ class HandGradSim3D:
 
     @ti.func
     def confine_position_to_box_forward(self, p):
-        new_p = ti.Vector([0.0, 0.0, 0.0])
-        ind = ti.Vector([0.0, 0.0, 0.0])
-        ind[0] = self.compute_voxel_ind(0, self.boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
-        ind[1] = self.compute_voxel_ind(0, self.boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
-        ind[2] = self.compute_voxel_ind(0, self.boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
+        new_p = p
+        ind = ti.Vector([0, 0, 0])
+        ind[0] = self.compute_voxel_ind(-1, self.boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
+        ind[1] = self.compute_voxel_ind(-1, self.boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
+        ind[2] = self.compute_voxel_ind(-1, self.boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
         sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
         if sdf_val <= 0:
             normal = self.box_normal[ind[0], ind[1], ind[2]]
             new_p = p + -1 * sdf_val * normal
-        else:
-            new_p = p
+        # print(p)
+        # print(new_p)
         return new_p
 
             

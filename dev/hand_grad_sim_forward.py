@@ -2,7 +2,7 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 import pickle
 
-time = 300
+time = 500
 
 sim = HandGradSim3D(max_timesteps=time, num_particles=2700, do_save_npy=True, do_emit=True)
 
