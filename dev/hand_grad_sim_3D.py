@@ -94,7 +94,8 @@ class HandGradSim3D:
                                 len(np.arange(-1, self.boundary[2], self.voxel_inc)))
 
         self.box_sdf = ti.var(ti.f32)
-        self.box_normal = ti.Vector(3, ti.f32)
+        self.box_gradient = ti.Vector(3, ti.f32)
+        self.box_laplacian = ti.Matrix(3, 3, ti.f32)
 
         self.loss = ti.var(ti.f32)
 
@@ -133,7 +134,8 @@ class HandGradSim3D:
         ti.root.place(self.tool_dims)
 
         ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_sdf)
-        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_normal)
+        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_gradient)
+        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_laplacian)
 
         ti.root.lazy_grad()
 
@@ -168,7 +170,8 @@ class HandGradSim3D:
         if tool_states is not None:
             self.init_tool(tool_states)
         self.box_sdf.from_numpy(np.load("box_sdf.npy"))
-        self.box_normal.from_numpy(np.load("box_sdf_grad.npy"))
+        self.box_gradient.from_numpy(np.load("box_sdf_gradient.npy"))
+        self.box_laplacian.from_numpy(np.load("box_sdf_laplacian.npy"))
 
         
     def clear_global_grads(self):
@@ -285,53 +288,53 @@ class HandGradSim3D:
 
         return jacobian
 
-    @ti.func
-    def confine_position_to_box_backward(self, p):
-        jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+    # @ti.func
+    # def confine_position_to_box_backward(self, p):
+    #     jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
 
-        # Center obstacle
-        box_pos = ti.Vector([0.0, 0.0, 10.0])
-        box_dims = ti.Vector([10.0, 20.0, 5.0])
+    #     # Center obstacle
+    #     box_pos = ti.Vector([0.0, 0.0, 10.0])
+    #     box_dims = ti.Vector([10.0, 20.0, 5.0])
 
-        box_front = box_pos[2]
-        box_back = box_pos[2] - box_dims[2]
-        box_left = box_pos[0]
-        box_right = box_pos[0] + box_dims[0]
-        box_bot = box_pos[1]
-        box_top = box_pos[1] + box_dims[1]
+    #     box_front = box_pos[2]
+    #     box_back = box_pos[2] - box_dims[2]
+    #     box_left = box_pos[0]
+    #     box_right = box_pos[0] + box_dims[0]
+    #     box_bot = box_pos[1]
+    #     box_top = box_pos[1] + box_dims[1]
 
-        if p[0] >= box_left and  p[0] <= box_right and p[1] >= box_bot and p[1] <= box_top and p[2] <= box_front and p[2] >= box_back:
-            # d = ti.Vector([0.0, 0.0, 0.0])
-            # d[0] = ti.abs(p[0] - box_right)
-            # d[1] = ti.abs(p[2] - box_front)
-            # d[2] = ti.abs(p[2] - box_back)
+    #     if p[0] >= box_left and  p[0] <= box_right and p[1] >= box_bot and p[1] <= box_top and p[2] <= box_front and p[2] >= box_back:
+    #         # d = ti.Vector([0.0, 0.0, 0.0])
+    #         # d[0] = ti.abs(p[0] - box_right)
+    #         # d[1] = ti.abs(p[2] - box_front)
+    #         # d[2] = ti.abs(p[2] - box_back)
 
-            # min_d = d[0]
-            # ind = 0
+    #         # min_d = d[0]
+    #         # ind = 0
 
-            # for k in ti.static(range(3)):
-            #     if d[k] < min_d:
-            #         ind = k    
+    #         # for k in ti.static(range(3)):
+    #         #     if d[k] < min_d:
+    #         #         ind = k    
 
-            # if ind == 0:
-            #     jacobian[0,0] = 0
-            # elif ind == 1:
-            #     jacobian[2,2] = 0
-            # elif ind == 2:
-            #     jacobian[2,2] = 0
+    #         # if ind == 0:
+    #         #     jacobian[0,0] = 0
+    #         # elif ind == 1:
+    #         #     jacobian[2,2] = 0
+    #         # elif ind == 2:
+    #         #     jacobian[2,2] = 0
 
-            d_right = box_right - p[0]
-            d_front = box_front - p[2]
-            d_back = p[2] - box_back
+    #         d_right = box_right - p[0]
+    #         d_front = box_front - p[2]
+    #         d_back = p[2] - box_back
 
-            if d_right <= d_front and d_right <= d_back:
-                jacobian[0,0] = 0
-            elif d_front <= d_right and d_front <= d_back:
-                jacobian[2,2] = 0
-            else:
-                jacobian[2,2] = 0
+    #         if d_right <= d_front and d_right <= d_back:
+    #             jacobian[0,0] = 0
+    #         elif d_front <= d_right and d_front <= d_back:
+    #             jacobian[2,2] = 0
+    #         else:
+    #             jacobian[2,2] = 0
 
-        return jacobian
+    #     return jacobian
 
     @ti.func
     def compute_voxel_ind(self, low, high, dim, inc, v):
@@ -354,11 +357,44 @@ class HandGradSim3D:
         ind[2] = self.compute_voxel_ind(-1, self.boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
         sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
         if sdf_val <= 0:
-            normal = self.box_normal[ind[0], ind[1], ind[2]]
+            normal = self.box_gradient[ind[0], ind[1], ind[2]]
             new_p = p + -1 * sdf_val * normal
         # print(p)
         # print(new_p)
         return new_p
+
+    @ti.func
+    def confine_position_to_box_backward(self, p):
+        jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        ind = ti.Vector([0, 0, 0])
+        ind[0] = self.compute_voxel_ind(-1, self.boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
+        ind[1] = self.compute_voxel_ind(-1, self.boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
+        ind[2] = self.compute_voxel_ind(-1, self.boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
+        sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
+        if sdf_val <= 0:
+            normal = self.box_gradient[ind[0], ind[1], ind[2]]
+            laplacian = self.box_laplacian[ind[0], ind[1], ind[2]]
+            # d Dx / dx
+            jacobian[0,0] += -1 * (normal[0] * normal[0] + sdf_val * laplacian[0,0])
+            # d Dx / dy
+            jacobian[1,0] += -1 * (normal[1] * normal[0] + sdf_val * laplacian[1,0])
+            # d Dx / dz
+            jacobian[2,0] += -1 * (normal[2] * normal[0] + sdf_val * laplacian[2,0])
+            # d Dy / dx
+            jacobian[0,1] += -1 * (normal[0] * normal[1] + sdf_val * laplacian[0,1])
+            # d Dy / dy
+            jacobian[1,1] += -1 * (normal[1] * normal[1] + sdf_val * laplacian[1,1])
+            # d Dy / dz
+            jacobian[2,1] += -1 * (normal[2] * normal[1] + sdf_val * laplacian[2,1])
+            # d Dz / dx
+            jacobian[0,2] += -1 * (normal[0] * normal[2] + sdf_val * laplacian[0,2])
+            # d Dz / dy
+            jacobian[1,2] += -1 * (normal[1] * normal[2] + sdf_val * laplacian[1,2])
+            # d Dz / dz
+            jacobian[2,2] += -1 * (normal[2] * normal[2] + sdf_val * laplacian[2,2])
+
+        return jacobian
+            
 
             
     @ti.kernel
@@ -1233,9 +1269,9 @@ class HandGradSim3D:
         active = self.particle_active.to_numpy()[frame,:]
         # inds = np.logical_or(active == 1, active == 2)
         inds = active == 1
-        np.save("../viz_results/3D/new_MPC/exp39/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
+        np.save("../viz_results/3D/new_MPC/exp41/particles/frame_{}".format(frame) + ".npy", pos[inds,:])
 
         tool_pos = self.tool_states.to_numpy()[frame,:]
-        np.save("../viz_results/3D/new_MPC/exp39/tool/frame_{}".format(frame) + ".npy", tool_pos)
+        np.save("../viz_results/3D/new_MPC/exp41/tool/frame_{}".format(frame) + ".npy", tool_pos)
 
     

@@ -1,6 +1,14 @@
 ## Work journal
 
 
+### Week of August 31st - August 31st, 2020
+
+
+#### Aug. 31st
+- Suction control
+
+
+
 ### Week of August 24th - August 28th, 2020
 
 
