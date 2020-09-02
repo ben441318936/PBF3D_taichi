@@ -1,11 +1,19 @@
 ## Work journal
 
 
-### Week of August 31st - August 31st, 2020
+### Week of August 31st - September 1st, 2020
+
+
+#### Sep. 1st
+- Suction control
+    - Tested MPC control for box and and sphere obstacle scenes
+    - Tested SDF for complicated meshes
+        - Currently has some boundary problems, might need better/more accurate SDF generation as well as damping
 
 
 #### Aug. 31st
 - Suction control
+    - Implemented gradients for SDF based collision
 
 
 
