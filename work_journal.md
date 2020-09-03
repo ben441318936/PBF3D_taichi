@@ -1,7 +1,17 @@
 ## Work journal
 
 
-### Week of August 31st - September 1st, 2020
+### Week of August 31st - September 2nd, 2020
+
+
+#### Sep. 2nd
+- Suction control
+    - SDF of complicated meshes
+        - Tuning the mesh-to-SDF parameters doesn't seem to help the instabilities
+        - Might transition to hand-crafted models with more well-behaved meshes
+    - Optimal starting point selection
+        - We can sample particle positions then run a longer simulation with MPC control
+        - The best starting point is the one with the lowest average number of particles
 
 
 #### Sep. 1st

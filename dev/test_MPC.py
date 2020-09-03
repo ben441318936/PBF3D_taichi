@@ -4,8 +4,8 @@ import pickle
 
 # log_file = open("log.txt", "a+")
 
-actual_sim = HandGradSim3D(max_timesteps=400, num_particles=1800, do_save_npy=True, do_emit=True)
-aux_sim = HandGradSim3D(max_timesteps=10, num_particles=1800, do_save_npy=False, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=200, num_particles=600, do_save_npy=True, do_emit=True)
+aux_sim = HandGradSim3D(max_timesteps=10, num_particles=600, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
@@ -56,7 +56,7 @@ for i in range(100,actual_sim.max_timesteps):
         actives = np.where(np.logical_or(part_active==1, part_active==2))[0]
         active_status = part_active[actives]
         active_pos = part_pos[actives, :]
-        active_vel = part_pos[actives, :]
+        active_vel = part_vel[actives, :]
         aux_sim.emit_particles(len(actives), 0, active_pos, active_vel, active_status)
 
         # print(len(actives))

@@ -170,9 +170,9 @@ class HandGradSim3D:
         self.init_tool_dim(np.array([1.0, 5.0, 1.0]))
         if tool_states is not None:
             self.init_tool(tool_states)
-        self.box_sdf.from_numpy(np.load("box_sdf.npy"))
-        self.box_gradient.from_numpy(np.load("box_sdf_gradient.npy"))
-        self.box_laplacian.from_numpy(np.load("box_sdf_laplacian.npy"))
+        self.box_sdf.from_numpy(np.load("maze_sdf.npy"))
+        self.box_gradient.from_numpy(np.load("maze_sdf_gradient.npy"))
+        self.box_laplacian.from_numpy(np.load("maze_sdf_laplacian.npy"))
 
         
     def clear_global_grads(self):

@@ -56,7 +56,7 @@ for i in range(100,actual_sim.max_timesteps):
         actives = np.where(np.logical_or(part_active==1, part_active==2))[0]
         active_status = part_active[actives]
         active_pos = part_pos[actives, :]
-        active_vel = part_pos[actives, :]
+        active_vel = part_vel[actives, :]
         aux_sim.emit_particles(len(actives), 0, active_pos, active_vel, active_status)
 
         # print(len(actives))
