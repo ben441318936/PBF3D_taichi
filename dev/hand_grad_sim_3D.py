@@ -165,6 +165,8 @@ class HandGradSim3D:
         self.num_active.fill(0)
         self.num_suctioned.fill(0)
         self.clear_neighbor_info()
+        self.clear_global_grads()
+        self.clear_local_grads()
         # Temporary hardcoded values here
         self.tool_states.fill(100.0)
         self.init_tool_dim(np.array([1.0, 5.0, 1.0]))
@@ -1189,7 +1191,6 @@ class HandGradSim3D:
 
     # For actual simulation that takes one step at a time
     def init_step(self):
-        self.clear_neighbor_info()
         if self.do_emit:
             # self.emit_particles(3, 0, np.array([[7.5, 10.0, 4.0],[7.5, 10.0, 5.0],[7.5, 10.0, 6.0]]), np.array([[1.0, 0.0, 0.0],[1.0, 0.0, 0.0],[1.0, 0.0, 0.0]]))
             self.emit_particles(6, 0, np.array([[1.0, 1.0, 0.5],[1.0, 1.0, 1.0],[1.0, 1.0, 1.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 

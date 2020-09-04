@@ -2,31 +2,37 @@ from hand_grad_sim_3D import HandGradSim3D
 import numpy as np
 
 class MPC:
-    def __init__(self, max_timesteps=400, num_particles=1800, do_save_npy=False, do_emit=True):
-        self.actual_sim = HandGradSim3D(max_timesteps=400, num_particles=1800, do_save_npy=True, do_emit=True)
-        self.aux_sim = HandGradSim3D(max_timesteps=10, num_particles=1800, do_save_npy=False, do_emit=True)
+    def __init__(self, main_sim_horizon=200, aux_sim_horizon=10, num_particles=600, init_point=np.array([1, 0.5, 13]), warm_up_steps=99, do_save_npy=True, do_emit=True):
+        self.actual_sim = HandGradSim3D(max_timesteps=main_sim_horizon, num_particles=num_particles, do_save_npy=do_save_npy, do_emit=do_emit)
+        self.aux_sim = HandGradSim3D(max_timesteps=aux_sim_horizon, num_particles=num_particles, do_save_npy=False, do_emit=do_emit)
 
         self.final_tool_trajectory = 100*np.ones((self.actual_sim.max_timesteps, self.actual_sim.dim))
 
         self.init_tool_states = np.zeros((self.aux_sim.max_timesteps, self.aux_sim.dim))
 
         for i in range(self.aux_sim.max_timesteps):
-            self.init_tool_states[i,:] = np.array([13, 0.5, 13])
+            self.init_tool_states[i,:] = init_point
         
         self.best_states = self.init_tool_states.copy()
         self.best_point = self.best_states[1,:]
+
+        self.warm_up_steps = warm_up_steps
 
     def start_actual_sim(self):
         # Start actual sim
         self.actual_sim.initialize()
         self.actual_sim.init_step()
 
-    def warm_up_actual_sim(self, steps):
+    def warm_up_actual_sim(self):
         # Run the main sim for some time to fill up particles
-        for i in range(1,1+steps):
+        for i in range(1,1+self.warm_up_steps):
             self.actual_sim.take_action(i, np.array([10.0, 20.0, 10.0]))
 
-    def MPC_main_loop(self, i, max_iters=21):
+    def run_MPC(self):
+        for i in range(self.warm_up_steps+1, self.actual_sim.max_timesteps):
+            self.MPC_loop(i)
+
+    def MPC_loop(self, i, max_iters=21):
         print("Finding action", i)
         # log_file.write("Finding action {}\n".format(i))
         # actual_sim.take_action(i,np.array([10.0, 20.0]))

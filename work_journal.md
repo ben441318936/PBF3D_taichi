@@ -1,7 +1,12 @@
 ## Work journal
 
 
-### Week of August 31st - September 2nd, 2020
+### Week of August 31st - September 3rd, 2020
+
+
+#### Sep. 3rd
+- Suction control
+    - Coding new simulation wrapper to handle optimal starting point
 
 
 #### Sep. 2nd

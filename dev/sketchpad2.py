@@ -1,4 +1,2 @@
-import cdflib
-
-cdf_file = cdflib.CDF("custom_box.cdf")
-
+for i in range(1,1):
+    print(i)
