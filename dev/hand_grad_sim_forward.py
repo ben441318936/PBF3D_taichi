@@ -1,10 +1,12 @@
-from hand_grad_sim_3D import HandGradSim3D
+from hand_grad_sim_3D_test import HandGradSim3D
 import numpy as np
 import pickle
 
-time = 300
+time = 600
 
-sim = HandGradSim3D(max_timesteps=time, num_particles=1800, do_save_npy=True, do_emit=True)
+sim = HandGradSim3D(max_timesteps=time, num_particles=600, do_save_npy=True, do_emit=True)
+
+sim.make_save_paths()
 
 initial_pos0 = np.array([10.0, 10.0, 10.0])
 initial_vel0 = np.array([10.0, 0.0, 0.0])

@@ -17,7 +17,7 @@ def rot_z(theta):
 
 a = rot_x(-np.pi/2)
 b = rot_y(np.pi*(225/180))
-c = rot_z(np.pi*(10/180))
+c = rot_z(np.pi*(0/180))
 
 d = c @ b @ a
 print(d)

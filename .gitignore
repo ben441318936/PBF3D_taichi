@@ -3,12 +3,14 @@
 *.ply
 *.hipnc
 *.obj
+*.stl
 *.pyc
 *.json
 *.jpg
 *.mtl
 *.npz
 *.npy
+*.cdf
 test.gif
 
 

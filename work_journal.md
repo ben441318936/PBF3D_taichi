@@ -1,7 +1,12 @@
 ## Work journal
 
 
-### Week of August 31st - September 3rd, 2020
+### Week of August 31st - September 4th, 2020
+
+
+#### Sep. 4th
+- Suction control
+    - Testing optimal starting point
 
 
 #### Sep. 3rd

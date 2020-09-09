@@ -11,6 +11,10 @@ class MPC:
         # This tool state is the initial suction point
         self.init_tool_state = None
 
+    def set_exp(self, exp):
+        self.main_sim.main_sim.exp = exp
+        self.main_sim.main_sim.make_save_paths()
+
     # The sim states here should come from registration with real-world
     def init_main_sim(self, init_sim_states):
         self.main_sim.init_sim_states = init_sim_states
@@ -24,25 +28,23 @@ class MPC:
         self.aux_sim.init_sim()
 
     def run_MPC(self):
+        tool = self.init_tool_state
         for i in range(1, self.main_sim.horizon):
-            print("Finding action", i)
+            # print("Finding action", i)
             sim_states = self.main_sim.extract_sim_states(i)
 
-            if i == 1:
-                # In the first iteration, we initialize the tool at the externally chosen suction point
-                # print(self.init_tool_state)
-                self.init_aux_sim(self.init_tool_state, sim_states)
-            else:
-                # Otherwise we use the previous solved best point as the init for the next step
-                self.init_aux_sim(self.aux_sim.best_point, sim_states)
-
-            # Then we do GD with the aux sim
-            self.aux_sim.gradient_descent()
-            best_point = self.aux_sim.best_point
-            print(best_point)
+            # In the first iteration, we initialize the tool at the externally chosen suction point
+            # print(self.init_tool_state)
+            tool = self.MPC_aux_step(tool, sim_states)
 
             # Then take action 
-            self.main_sim.take_action(i, best_point)
+            self.main_sim.take_action(i, tool)
+
+    def MPC_aux_step(self, tool_state, sim_states):
+        self.init_aux_sim(tool_state, sim_states)
+        self.aux_sim.gradient_descent()
+        best_point = self.aux_sim.best_point
+        return best_point
 
     # Helper function to extract info from the real life sim
     def extract_sim_states(self, sim, t):

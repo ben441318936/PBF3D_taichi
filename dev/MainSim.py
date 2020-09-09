@@ -14,6 +14,7 @@ class MainSim:
     def init_sim(self):
         self.main_sim.initialize()
         self.main_sim.emit_particles(self.init_sim_states[0], 0, self.init_sim_states[1], self.init_sim_states[2], self.init_sim_states[3])
+        self.main_sim.init_step()
 
     def extract_sim_states(self, t):
         part_pos = self.main_sim.positions.to_numpy()[t-1,:,:]
