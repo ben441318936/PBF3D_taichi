@@ -1,21 +1,27 @@
+import argparse
+
 from MPC_new import MPC
 from MainSim import MainSim
 from AuxiliarySim import AuxiliarySim
 from hand_grad_sim_3D_test import HandGradSim3D
 import numpy as np
 
-real_world_max_time = 400
-real_world_warm_up_time = 100
+parser = argparse.ArgumentParser(description="Pick the emission point")
+parser.add_argument("exp_num", type=int)
+
+args = parser.parse_args()
+
+exp_num = 520 + args.exp_num
+
+emit_pos = np.load("./cavity1_emit_pos.npy")[args.exp_num]
+emit_vel = np.load("./cavity1_emit_vel.npy")[args.exp_num]
+
+real_world_max_time = 500
+real_world_warm_up_time = 200
 max_particles = real_world_max_time
 main_sim_max_time = 100
 aux_sim_max_time = 10
-real_world_exp_num = 800
-
-# emit_pos = np.array([[0.7, 1.0, 0.5],[0.7, 1.0, 1.0],[0.7, 1.0, 1.5]])
-# emit_vel = np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]])
-
-emit_pos = np.array([[9.3, 1.0, 3.5],[9.3, 1.0, 4.0],[9.3, 1.0, 4.5]])
-emit_vel = np.array([[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0]])
+real_world_exp_num = exp_num
 
 real_world = HandGradSim3D(max_timesteps=real_world_max_time, num_particles=max_particles, do_save_npy=True, do_emit=True)
 real_world.set_emit(emit_pos, emit_vel)
@@ -60,10 +66,11 @@ eligible_inds = np.nonzero(particle_status == 1)
 selected = np.random.choice(eligible_inds[0], num_samples, replace=False)
 
 for i in range(num_samples):
+    print(exp_num)
     print("Sample {}".format(i))
     sample_positions.append(particle_pos[selected[i], :])
     mpc.init_tool_state = sample_positions[i]
-    mpc.set_exp("exp{}".format(real_world_exp_num+1+i))
+    # mpc.set_exp("exp{}".format(real_world_exp_num+1+i))
     mpc.init_main_sim(real_life_state)
     mpc.run_MPC()
     # Check number of remaining particles
@@ -99,13 +106,4 @@ for i in range(real_world_warm_up_time, real_world_max_time):
     real_life_state = mpc.extract_sim_states(real_world, i)
     tool = mpc.MPC_aux_step(tool, real_life_state)
     real_world.take_action(i, tool)
-
-
-
-
-
-
-
-
-
 

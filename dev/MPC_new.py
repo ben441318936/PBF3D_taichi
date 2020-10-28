@@ -11,6 +11,10 @@ class MPC:
         # This tool state is the initial suction point
         self.init_tool_state = None
 
+    def set_emit(self, emit_pos, emit_vel):
+        self.main_sim.set_emit(emit_pos, emit_vel)
+        self.aux_sim.set_emit(emit_pos, emit_vel)
+
     def set_exp(self, exp):
         self.main_sim.main_sim.exp = exp
         self.main_sim.main_sim.make_save_paths()

@@ -11,7 +11,8 @@ class HandGradSim3D:
     def __init__(self, max_timesteps=10, num_particles=10, do_emit=False, do_save_ply=False, do_save_npy=False, do_save_npz=False, do_render=False):
 
         self.dim = 3
-        self.delta_t = 1.0 / 150.0
+        # self.delta_t = 1.0 / 50.0
+        self.delta_t = 1.0 / 100.0
         self.max_timesteps = max_timesteps
         self.num_particles = num_particles
 
@@ -21,10 +22,19 @@ class HandGradSim3D:
         self.do_save_npy = do_save_npy
         self.do_render = do_render
 
-        self.exp = "exp56"
+        self.emit_pos = np.array([0,0,0])
+        self.emit_vel = np.array([0,0,0])
 
-        self.voxel_grid_boundary = np.array([15.0, 20.0, 15.0])
-        self.boundary = np.array([15.0, 20.0, 15.0])
+        self.exp = "exp44"
+
+        self.voxel_grid_boundary = np.array([10.0, 10.0, 8.2])
+        self.boundary = np.array([10.0, 10.0, 8.2])
+
+        # self.voxel_grid_boundary = np.array([8.2, 10.0, 10.0])
+        # self.boundary = np.array([8.2, 10.0, 10.0])
+
+        # self.voxel_grid_boundary = np.array([10.0, 10.0, 8.2])
+        # self.boundary = np.array([10.0, 10.0, 8.2])
 
         self.cell_size = 2.51
         self.cell_recpr = 1.0 / self.cell_size
@@ -43,7 +53,7 @@ class HandGradSim3D:
         # PBF params
         self.h = 1.1
         self.mass = 1.0
-        self.rho0 = 2.0
+        self.rho0 = 1.0
         self.lambda_epsilon = 100.0
         self.vorticity_epsilon = 0.01
         self.viscosity_c = 0.1
@@ -96,13 +106,16 @@ class HandGradSim3D:
         self.tool_dims = ti.Vector(self.dim, dt=ti.f32)
 
         self.voxel_inc = 0.1
-        self.voxel_grid_dims = (len(np.arange(-1, self.voxel_grid_boundary[0], self.voxel_inc)),
-                                len(np.arange(-1, self.voxel_grid_boundary[1], self.voxel_inc)),
-                                len(np.arange(-1, self.voxel_grid_boundary[2], self.voxel_inc)))
+        self.voxel_grid_dims = (len(np.arange(0, self.voxel_grid_boundary[0], self.voxel_inc)),
+                                len(np.arange(0, self.voxel_grid_boundary[1], self.voxel_inc)),
+                                len(np.arange(0, self.voxel_grid_boundary[2], self.voxel_inc)))
 
         self.box_sdf = ti.var(ti.f32)
         self.box_gradient = ti.Vector(3, ti.f32)
         self.box_laplacian = ti.Matrix(3, 3, ti.f32)
+        
+        self.box_inflated_sdf = ti.var(ti.f32)
+        self.box_inflated_gradient = ti.Vector(3, ti.f32)
 
         self.loss = ti.var(ti.f32)
 
@@ -146,6 +159,9 @@ class HandGradSim3D:
         ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_gradient)
         ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_laplacian)
 
+        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_inflated_sdf)
+        ti.root.dense(ti.ijk, self.voxel_grid_dims).place(self.box_inflated_gradient)
+
         ti.root.lazy_grad()
 
 
@@ -153,6 +169,9 @@ class HandGradSim3D:
         Path("../viz_results/3D/new_MPC/{}/particles/".format(self.exp)).mkdir(parents=True, exist_ok=True) 
         Path("../viz_results/3D/new_MPC/{}/tool/".format(self.exp)).mkdir(parents=True, exist_ok=True) 
 
+    def set_emit(self, emit_pos, emit_vel):
+        self.emit_pos = emit_pos
+        self.emit_vel = emit_vel
 
     @ti.kernel
     def init_tool(self, states: ti.ext_arr()):
@@ -184,12 +203,17 @@ class HandGradSim3D:
         self.clear_local_grads()
         # Temporary hardcoded values here
         self.tool_states.fill(100.0)
-        self.init_tool_dim(np.array([1.0, 5.0, 1.0]))
+        self.init_tool_dim(np.array([0.5, 5.0, 0.5]))
         if tool_states is not None:
             self.init_tool(tool_states)
-        self.box_sdf.from_numpy(np.load("heart2_2_sdf.npy"))
-        self.box_gradient.from_numpy(np.load("heart2_2_sdf_gradient.npy"))
-        self.box_laplacian.from_numpy(np.load("heart2_2_sdf_laplacian.npy"))
+        self.box_sdf.from_numpy(np.load("center_obs_shallow_sdf.npy"))
+        self.box_gradient.from_numpy(np.load("center_obs_shallow_sdf_gradient.npy"))
+        self.box_laplacian.from_numpy(np.load("center_obs_shallow_sdf_laplacian.npy"))
+        self.box_inflated_sdf.from_numpy(np.load("center_obs_shallow_inflated_sdf.npy"))
+        self.box_inflated_gradient.from_numpy(np.load("center_obs_inflated_sdf_gradient.npy"))
+        # self.box_sdf.from_numpy(np.load("cavity2_sdf.npy"))
+        # self.box_gradient.from_numpy(np.load("cavity2_sdf_gradient.npy"))
+        # self.box_laplacian.from_numpy(np.load("cavity2_sdf_laplacian.npy"))
 
         
     def clear_global_grads(self):
@@ -372,9 +396,9 @@ class HandGradSim3D:
         p = ti.Vector([p[0], p[1], p[2]])
         new_p = p
         ind = ti.Vector([0, 0, 0])
-        ind[0] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
-        ind[1] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
-        ind[2] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
+        ind[0] = self.compute_voxel_ind(0, self.voxel_grid_boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
+        ind[1] = self.compute_voxel_ind(0, self.voxel_grid_boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
+        ind[2] = self.compute_voxel_ind(0, self.voxel_grid_boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
         sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
         if sdf_val <= 0:
             normal = self.box_gradient[ind[0], ind[1], ind[2]]
@@ -386,14 +410,14 @@ class HandGradSim3D:
     def confine_position_to_box_py(self, p):
         new_p = p
         ind = np.array([0, 0, 0])
-        ind[0] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
-        ind[1] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
-        ind[2] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
-        sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
+        ind[0] = self.compute_voxel_ind(0, self.voxel_grid_boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
+        ind[1] = self.compute_voxel_ind(0, self.voxel_grid_boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
+        ind[2] = self.compute_voxel_ind(0, self.voxel_grid_boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
+        sdf_val = self.box_inflated_sdf[ind[0], ind[1], ind[2]]
         if sdf_val <= 0:
-            normal = np.array([self.box_gradient[ind[0], ind[1], ind[2]][0], 
-                               self.box_gradient[ind[0], ind[1], ind[2]][1], 
-                               self.box_gradient[ind[0], ind[1], ind[2]][2]])
+            normal = np.array([self.box_inflated_gradient[ind[0], ind[1], ind[2]][0], 
+                               self.box_inflated_gradient[ind[0], ind[1], ind[2]][1], 
+                               self.box_inflated_gradient[ind[0], ind[1], ind[2]][2]])
             new_p = p + -1 * sdf_val * normal
         # print(p)
         # print(new_p)
@@ -403,9 +427,9 @@ class HandGradSim3D:
     def confine_position_to_box_backward(self, p):
         jacobian = ti.Matrix([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
         ind = ti.Vector([0, 0, 0])
-        ind[0] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
-        ind[1] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
-        ind[2] = self.compute_voxel_ind(-1, self.voxel_grid_boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
+        ind[0] = self.compute_voxel_ind(0, self.voxel_grid_boundary[0], self.voxel_grid_dims[0], self.voxel_inc, p[0])
+        ind[1] = self.compute_voxel_ind(0, self.voxel_grid_boundary[1], self.voxel_grid_dims[1], self.voxel_inc, p[1])
+        ind[2] = self.compute_voxel_ind(0, self.voxel_grid_boundary[2], self.voxel_grid_dims[2], self.voxel_inc, p[2])
         sdf_val = self.box_sdf[ind[0], ind[1], ind[2]]
         if sdf_val <= 0:
             normal = self.box_gradient[ind[0], ind[1], ind[2]]
@@ -437,7 +461,7 @@ class HandGradSim3D:
     def gravity_forward(self, frame: ti.i32):
         for i in range(self.num_particles):
             if self.particle_active[frame,i] == 1:
-                g = ti.Vector([0.0, -9.81*10, 0.0])
+                g = ti.Vector([0.0, -9.81*100, 0.0])
                 pos, vel = self.positions[frame-1,i], self.velocities[frame-1,i]
                 vel += g * self.delta_t
                 pos += vel * self.delta_t
@@ -620,7 +644,8 @@ class HandGradSim3D:
                 z = pos_i[2]
 
                 #Inside field
-                delta += self.upward_field_forward(x, x0, z, z0) * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig)
+                delta += self.upward_field_forward(x, x0, z, z0) \
+                            * self.gating_increase_forward(y, tool_bot-1, self.gating_y_sig) \
                 # Outside field
                 delta += self.center_force_forward(pos_i, tool_center) \
                             * self.gating_increase_forward(x, tool_left-0.5, self.gating_x_sig) \
@@ -1231,10 +1256,15 @@ class HandGradSim3D:
         for i in range(1,self.max_timesteps):
             # self.move_tool(i)
             self.step_forward(i)
-            if self.do_emit and i % 4 == 0:
-                self.emit_particles(2, i, np.array([[4.0, 5.5, 12.0],[5.0, 5.5, 12.0],[6.0, 5.0, 13.0]]), np.array([[-3.0, 0.0, -3.0],[-3.0, 0.0, -3.0],[5.0, 0.0, 0.0]]))
-                # self.emit_particles(6, i, np.array([[1.0, 1.0, 0.5],[1.0, 1.0, 1.0],[1.0, 1.0, 1.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
-                                        #   np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            if self.do_emit and i % 3 == 0:
+                # self.emit_particles(3, i, np.array([[1.0, 1.0, 0.5],[1.0, 1.0, 1.0],[1.0, 1.0, 1.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
+                                        #  np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+                # self.emit_particles(3, i, np.array([[7.5, 1.0, 3.5],[7.5, 1.0, 4.0],[7.5, 1.0, 4.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
+                                        #   np.array([[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+                # self.emit_particles(3, i, np.array([[7.5, 1.0, 3.5],[7.5, 1.0, 4.0],[7.5, 1.0, 4.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
+                                        #   np.array([[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+                self.emit_particles(3, i, self.emit_pos, self.emit_vel)
+
             if self.do_save_ply:
                 self.save_ply(i)
             if self.do_save_npz:
@@ -1267,8 +1297,8 @@ class HandGradSim3D:
             pos[0] = 0
         elif pos[0] + self.tool_dims[None][0] >= self.boundary[0]:
             pos[0] = self.boundary[0] - self.tool_dims[None][0]
-        if pos[1] <= 0:
-            pos[1] = 0
+        if pos[1] <= 1:
+            pos[1] = 1
         # elif pos[1] >= 0.5:
         #     pos[1] = 0.5
         if pos[2] <= 0:
@@ -1308,10 +1338,14 @@ class HandGradSim3D:
     def take_action(self, frame, tool_pos):
         self.move_tool(frame, tool_pos)
         self.step_forward(frame)
-        if self.do_emit and frame % 4 == 0:
-            self.emit_particles(2, frame, np.array([[5.5, 5.0, 13.0],[4.5, 5.0, 13.0],[6.5, 5.0, 13.0]]), np.array([[-3.0, 0.0, -3.0],[-3.0, 0.0, -3.0],[5.0, 0.0, 0.0]]))
-            # self.emit_particles(6, frame, np.array([[1.0, 1.0, 0.5],[1.0, 1.0, 1.0],[1.0, 1.0, 1.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
+        if self.do_emit and frame % 3 == 0:
+            # self.emit_particles(3, frame, np.array([[1.0, 1.0, 0.5],[1.0, 1.0, 1.0],[1.0, 1.0, 1.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
                                         #   np.array([[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            # self.emit_particles(3, frame, np.array([[7.5, 1.0, 4.5],[7.5, 1.0, 5.0],[7.5, 1.0, 5.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
+                                        #   np.array([[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            # self.emit_particles(3, frame, np.array([[7.5, 1.0, 4.5],[7.5, 1.0, 5.0],[7.5, 1.0, 5.5],[1.0, 1.0, 2.0],[1.0, 1.0, 2.5],[1.0, 1.0, 3.0],[1.0, 1.0, 3.5],[1.0, 1.0, 4.0],[1.0, 1.0, 4.5]]), 
+                                        #   np.array([[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[-5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0],[5.0, 0.0, 0.0]]))
+            self.emit_particles(3, frame, self.emit_pos, self.emit_vel)
         if self.do_save_npy:
             self.save_npy(frame)
 

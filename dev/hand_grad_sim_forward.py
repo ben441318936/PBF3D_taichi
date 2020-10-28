@@ -2,14 +2,30 @@ from hand_grad_sim_3D_test import HandGradSim3D
 import numpy as np
 import pickle
 
-time = 600
+import argparse
 
-sim = HandGradSim3D(max_timesteps=time, num_particles=600, do_save_npy=True, do_emit=True)
 
+parser = argparse.ArgumentParser(description="Pick the emission point")
+parser.add_argument("exp_num", type=int)
+
+args = parser.parse_args()
+
+exp_num = 520 + args.exp_num
+
+emit_pos = np.load("./cavity1_emit_pos.npy")[args.exp_num]
+emit_vel = np.load("./cavity1_emit_vel.npy")[args.exp_num]
+
+time = 400
+
+sim = HandGradSim3D(max_timesteps=time, num_particles=500, do_save_npy=True, do_emit=True)
+sim.exp = "exp{}".format(exp_num)
 sim.make_save_paths()
+sim.set_emit(emit_pos, emit_vel)
 
 initial_pos0 = np.array([10.0, 10.0, 10.0])
 initial_vel0 = np.array([10.0, 0.0, 0.0])
+
+trajectory = np.load("./cavity2_manual_path_right.npy")
 
 # board_states = np.zeros((sim.max_timesteps,sim.dim))
 # for i in range(sim.max_timesteps):
@@ -34,8 +50,12 @@ initial_vel0 = np.array([10.0, 0.0, 0.0])
 # board_states = iter_states["iter1000"]
 
 board_states = np.zeros((time, 3))
-for i in range(time):
+for i in range(100):
     board_states[i,:] = np.array([1, 20, 15])
+for i in range(100, time):
+    # board_states[i,:] = np.array([2, 0.5, 2])
+    board_states[i,:] = trajectory[i-200]
+    # board_states[i,:] = np.array([1, 20, 15])
 
 sim.initialize(tool_states=board_states)
 

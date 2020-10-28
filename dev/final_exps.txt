@@ -1,0 +1,27 @@
+100: cavity1 (not used)
+
+200: cavity2 (not used)
+
+300: cavity3, limited emission (not used)
+
+400: cavity2, unlimited eission (not used)
+
+500: cavity1 with inflated rigids
+    501 - 510: init selection
+    511: fixed point, at emission
+    512: fixed point, at end of path
+    513: fixed point, at middle
+    514: manual trajectory
+    520 - xxx: heatmap exps
+
+600: cavity3 with inflated rigids
+    601: - 610: init selection
+    611: fixed point, at emission
+    612: fixed point, at left end of path
+    613: fixed point, at right end of path
+    614: manual trajectory from left end
+    615: manual trajectory from right end
+
+700: shallow
+
+800: shallow

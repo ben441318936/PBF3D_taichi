@@ -1,15 +1,18 @@
-from hand_grad_sim_3D import HandGradSim3D
+from hand_grad_sim_3D_test import HandGradSim3D
 import numpy as np
 
 class MainSim:
     def __init__(self, horizon=100, num_particles=600, init_sim_states=None, do_emit=True):
         self.horizon = horizon
 
-        self.main_sim = HandGradSim3D(max_timesteps=horizon, num_particles=num_particles, do_save_npy=True, do_emit=do_emit)
+        self.main_sim = HandGradSim3D(max_timesteps=horizon, num_particles=num_particles, do_save_npy=False, do_emit=do_emit)
 
         self.best_point = np.array([0.0, 0.0, 0.0])
 
         self.init_sim_states = init_sim_states
+
+    def set_emit(self, emit_pos, emit_vel):
+        self.main_sim.set_emit(emit_pos, emit_vel)
 
     def init_sim(self):
         self.main_sim.initialize()

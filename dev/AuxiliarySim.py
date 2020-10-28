@@ -1,4 +1,4 @@
-from hand_grad_sim_3D import HandGradSim3D
+from hand_grad_sim_3D_test import HandGradSim3D
 import numpy as np
 
 class AuxiliarySim:
@@ -11,6 +11,9 @@ class AuxiliarySim:
         self.best_point = self.best_states[1,:]
 
         self.init_sim_states = init_sim_states
+
+    def set_emit(self, emit_pos, emit_vel):
+        self.aux_sim.set_emit(emit_pos, emit_vel)
 
     def set_init_tool_states(self, init_tool_state):
         self.init_tool_states = np.zeros((self.aux_sim.max_timesteps, self.aux_sim.dim))
@@ -78,11 +81,11 @@ class AuxiliarySim:
             if k % 20 == 0:
                 lr *= 0.95
 
-        self.best_point = self.best_states[1,:]
+        self.best_point = self.aux_sim.confine_tool_to_boundary(self.best_states[1,:])
 
         dif = self.best_point - old_best_point
         m = np.max(np.abs(dif))
-        c = 0.5
+        c = 0.05
         if m >= c:
             dif = dif / m * c
         self.best_point = old_best_point + dif

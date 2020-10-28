@@ -1,4 +1,4 @@
-from hand_grad_sim_3D import HandGradSim3D
+from hand_grad_sim_3D_test import HandGradSim3D
 import numpy as np
 
 class MPC:
@@ -107,7 +107,7 @@ class MPC:
         self.best_point = self.best_states[1,:]
         dif = self.best_point - old_best_point
         m = np.max(np.abs(dif))
-        c = 0.5
+        c = 0.05
         if m >= c:
             dif = dif / m * c
         self.best_point = old_best_point + dif

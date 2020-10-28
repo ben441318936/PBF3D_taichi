@@ -4,14 +4,15 @@ import pickle
 
 # log_file = open("log.txt", "a+")
 
-actual_sim = HandGradSim3D(max_timesteps=800, num_particles=600, do_save_npy=True, do_emit=True)
-aux_sim = HandGradSim3D(max_timesteps=10, num_particles=600, do_save_npy=False, do_emit=True)
+actual_sim = HandGradSim3D(max_timesteps=500, num_particles=500, do_save_npy=True, do_emit=True)
+aux_sim = HandGradSim3D(max_timesteps=10, num_particles=500, do_save_npy=False, do_emit=True)
 
 final_tool_trajectory = 100*np.ones((actual_sim.max_timesteps, actual_sim.dim))
 
 init_tool_states = np.zeros((aux_sim.max_timesteps, aux_sim.dim))
 for i in range(aux_sim.max_timesteps):
-    init_tool_states[i,:] = np.array([7.5, 3, 8])
+    init_tool_states[i,:] = np.array([1, 0.5, 6])
+    # init_tool_states[i,:] = np.array([4.5, 1, 4.5])
 best_states = init_tool_states.copy()
 best_point = best_states[1,:]
 
@@ -20,11 +21,11 @@ actual_sim.initialize()
 actual_sim.init_step()
 
 # Run the main sim for some time to fill up particles
-for i in range(1,600):
+for i in range(1,200):
     actual_sim.take_action(i, np.array([15.0, 20.0, 15.0]))
 
-for i in range(600,actual_sim.max_timesteps):
-    if i % 5 == 0:
+for i in range(200,actual_sim.max_timesteps):
+    if i % 1 == 0:
         print("Finding action", i)
         # log_file.write("Finding action {}\n".format(i))
         # actual_sim.take_action(i,np.array([10.0, 20.0]))
@@ -99,7 +100,7 @@ for i in range(600,actual_sim.max_timesteps):
         best_point = best_states[1,:]
         dif = best_point - old_best_point
         m = np.max(np.abs(dif))
-        c = 0.5
+        c = 0.05
         if m >= c:
             dif = dif / m * c
         best_point = old_best_point + dif
